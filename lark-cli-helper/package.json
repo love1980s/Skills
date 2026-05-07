@@ -1,0 +1,37 @@
+{
+  "name": "lark-cli-helper",
+  "version": "1.0.0",
+  "description": "飞书CLI工具助手，提供安装、配置、授权等基础能力",
+  "main": "index.js",
+  "keywords": [
+    "lark",
+    "feishu",
+    "cli",
+    "openclaw",
+    "skill"
+  ],
+  "author": "天禧Claw",
+  "license": "MIT",
+  "dependencies": {},
+  "openclaw": {
+    "skill": {
+      "name": "飞书CLI助手",
+      "description": "飞书CLI工具助手，提供安装、配置、授权等基础能力",
+      "version": "1.0.0",
+      "author": "天禧Claw",
+      "triggers": [
+        "安装飞书CLI",
+        "配置飞书",
+        "飞书授权",
+        "检查飞书配置",
+        "lark-cli初始化"
+      ],
+      "capabilities": [
+        "lark-cli.install",
+        "lark-cli.configure",
+        "lark-cli.authorize",
+        "lark-cli.status"
+      ]
+    }
+  }
+}

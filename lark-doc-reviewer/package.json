@@ -1,0 +1,43 @@
+{
+  "name": "lark-doc-reviewer",
+  "version": "1.0.0",
+  "description": "飞书文档智能评审助手，自动评审文档并添加定点评论",
+  "main": "index.js",
+  "keywords": [
+    "lark",
+    "feishu",
+    "document",
+    "review",
+    "openclaw",
+    "skill"
+  ],
+  "author": "天禧Claw",
+  "license": "MIT",
+  "dependencies": {
+    "lark-cli-helper": "^1.0.0"
+  },
+  "openclaw": {
+    "skill": {
+      "name": "飞书文档评审助手",
+      "description": "智能评审飞书文档，自动添加定点评论，支持PRD、技术方案等多场景评审",
+      "version": "1.0.0",
+      "author": "天禧Claw",
+      "triggers": [
+        "评审飞书文档",
+        "给飞书文档加评论",
+        "PRD评审",
+        "技术方案评审",
+        "文档审核",
+        "飞书文档评论"
+      ],
+      "dependencies": [
+        "lark-cli-helper"
+      ],
+      "capabilities": [
+        "lark.review.document",
+        "lark.comment.add",
+        "lark.review.template.manage"
+      ]
+    }
+  }
+}
