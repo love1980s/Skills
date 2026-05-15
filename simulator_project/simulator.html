@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天禧Claw · 收益模拟器 V2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root {
+  --bg: #0a0e1a; --bg2: #0f1525; --bg3: #161d30; --border: #1e2a42;
+  --teal: #00d4aa; --teal-dim: rgba(0,212,170,0.15); --teal-glow: rgba(0,212,170,0.3);
+  --red: #ff6b6b; --red-dim: rgba(255,107,107,0.15);
+  --yellow: #ffd166; --text: #e8edf5; --text-dim: #6b7a99; --text-mid: #9aa5be;
+  --trial: #7c6af7; --basic: #00d4aa; --expert: #ffd166; --master: #ff9f43;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Noto Sans SC', sans-serif; font-size: 14px; min-height: 100vh; }
+
+header {
+  padding: 24px 40px; border-bottom: 1px solid var(--border);
+  background: linear-gradient(135deg, #0a0e1a 0%, #0d1628 50%, #0a1220 100%);
+  position: relative; overflow: hidden;
+}
+header::before {
+  content: ''; position: absolute; top: -60px; right: -60px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(0,212,170,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.header-inner { display: flex; align-items: center; justify-content: space-between; }
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-mark { width: 34px; height: 34px; background: var(--teal); clip-path: polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%); }
+.logo-text { font-size: 19px; font-weight: 700; }
+.logo-text span { color: var(--teal); }
+.header-sub { color: var(--text-dim); font-size: 11px; margin-top: 2px; letter-spacing: 0.05em; }
+.price-toggle { display: flex; background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+.price-toggle button { padding: 7px 16px; background: none; border: none; color: var(--text-dim); cursor: pointer; font-family: 'Noto Sans SC',sans-serif; font-size: 13px; transition: all 0.2s; }
+.price-toggle button.active { background: var(--teal); color: #0a0e1a; font-weight: 500; }
+
+.main { padding: 28px 40px; display: grid; gap: 24px; }
+
+.kpi-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+.kpi-card { background: var(--bg2); border: 1px solid var(--border); padding: 18px 22px; position: relative; overflow: hidden; }
+.kpi-card::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--teal); transform: scaleX(0); transition: transform 0.3s; }
+.kpi-card:hover::after { transform: scaleX(1); }
+.kpi-label { font-size: 10px; color: var(--text-dim); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+.kpi-value { font-family: 'DM Mono',monospace; font-size: 26px; font-weight: 500; transition: color 0.3s; line-height: 1; }
+.kpi-value.positive { color: var(--teal); text-shadow: 0 0 20px var(--teal-glow); }
+.kpi-value.negative { color: var(--red); text-shadow: 0 0 20px rgba(255,107,107,0.3); }
+.kpi-value.neutral { color: var(--text); }
+.kpi-sub { font-size: 10px; color: var(--text-dim); margin-top: 5px; }
+
+.mid-row { display: grid; grid-template-columns: 400px 1fr; gap: 20px; }
+.panel { background: var(--bg2); border: 1px solid var(--border); padding: 22px; }
+.panel-title { font-size: 10px; letter-spacing: 0.12em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+
+.total-users { margin-bottom: 20px; }
+.total-users label { font-size: 11px; color: var(--text-mid); display: block; margin-bottom: 6px; }
+.total-users input { width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: 'DM Mono',monospace; font-size: 17px; padding: 9px 12px; outline: none; transition: border-color 0.2s; }
+.total-users input:focus { border-color: var(--teal); }
+
+.tier-sliders { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }
+.tier-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.tier-name { font-size: 12px; font-weight: 500; }
+.tier-pct { font-family: 'DM Mono',monospace; font-size: 12px; color: var(--teal); }
+.tier-count { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+
+input[type=range] { -webkit-appearance: none; width: 100%; height: 3px; border-radius: 0; outline: none; cursor: pointer; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 13px; height: 13px; border-radius: 0; cursor: pointer; transition: transform 0.15s; }
+input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.3); }
+.range-trial::-webkit-slider-thumb { background: var(--trial); }
+.range-basic::-webkit-slider-thumb { background: var(--basic); }
+.range-expert::-webkit-slider-thumb { background: var(--expert); }
+.range-master::-webkit-slider-thumb { background: var(--master); }
+
+.tier-dot { display: inline-block; width: 7px; height: 7px; margin-right: 5px; vertical-align: middle; }
+
+/* Pricing config */
+.pricing-section { border-top: 1px solid var(--border); padding-top: 16px; }
+.pricing-section-title { font-size: 10px; letter-spacing: 0.1em; color: var(--text-dim); text-transform: uppercase; margin-bottom: 12px; }
+.pricing-grid { display: grid; grid-template-columns: 1fr 80px 80px 80px; gap: 6px; align-items: center; }
+.pricing-grid-header { font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; padding: 0 4px 4px; text-align: center; }
+.pricing-grid-header:first-child { text-align: left; }
+.pricing-tier-name { font-size: 11px; display: flex; align-items: center; }
+.price-input { width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: 'DM Mono',monospace; font-size: 12px; padding: 5px 6px; outline: none; text-align: center; transition: border-color 0.2s; }
+.price-input:focus { border-color: var(--teal); }
+.price-readonly { font-family: 'DM Mono',monospace; font-size: 12px; color: var(--text-dim); text-align: center; padding: 5px 6px; }
+
+.chart-wrap { position: relative; height: 300px; }
+
+/* Bottom rows */
+.bottom-row1 { display: grid; grid-template-columns: 1fr 380px; gap: 20px; }
+.bottom-row2 { display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
+
+table { width: 100%; border-collapse: collapse; }
+thead th { font-size: 9px; letter-spacing: 0.1em; color: var(--text-dim); text-transform: uppercase; padding: 0 10px 10px; text-align: right; border-bottom: 1px solid var(--border); }
+thead th:first-child { text-align: left; }
+tbody tr { transition: background 0.15s; }
+tbody tr:hover { background: rgba(255,255,255,0.02); }
+tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+tbody td { padding: 10px; font-family: 'DM Mono',monospace; font-size: 12px; text-align: right; border-bottom: 1px solid rgba(30,42,66,0.5); }
+tbody td:first-child { font-family: 'Noto Sans SC',sans-serif; text-align: left; font-size: 12px; }
+.profit-pos { color: var(--teal); }
+.profit-neg { color: var(--red); }
+
+/* Breakeven panel */
+.be-top { display: grid; grid-template-columns: 1fr 160px; gap: 16px; align-items: start; margin-bottom: 16px; }
+.be-number { font-family: 'DM Mono',monospace; font-size: 40px; font-weight: 500; color: var(--teal); line-height: 1; }
+.be-number.danger { color: var(--red); }
+.be-desc { font-size: 11px; color: var(--text-mid); line-height: 1.6; margin-top: 6px; }
+.be-chart-wrap { position: relative; height: 150px; }
+.formula-box { background: var(--bg3); border: 1px solid var(--border); border-left: 2px solid var(--teal); padding: 12px 14px; margin: 14px 0; font-size: 11px; line-height: 1.8; color: var(--text-mid); font-family: 'DM Mono',monospace; }
+.formula-box .formula-title { font-family: 'Noto Sans SC',sans-serif; font-size: 10px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+.formula-highlight { color: var(--teal); }
+.formula-var { color: var(--yellow); }
+.insight-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.insight-item { }
+.insight-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
+.insight-val { font-family: 'DM Mono',monospace; font-size: 13px; color: var(--text); }
+
+/* Cost breakdown + reduction */
+.cost-pie-wrap { position: relative; height: 200px; }
+.reduction-sliders { display: flex; flex-direction: column; gap: 20px; }
+.reduction-row { }
+.reduction-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.reduction-label { font-size: 12px; color: var(--text-mid); }
+.reduction-val { font-family: 'DM Mono',monospace; font-size: 12px; color: var(--teal); }
+.reduction-sub { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+.range-token::-webkit-slider-thumb { background: var(--trial); }
+.range-other::-webkit-slider-thumb { background: var(--yellow); }
+.savings-box { background: var(--bg3); border: 1px solid var(--border); padding: 14px; margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.savings-item-label { font-size: 9px; color: var(--text-dim); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 3px; }
+.savings-item-val { font-family: 'DM Mono',monospace; font-size: 16px; color: var(--teal); }
+
+.status-bar { padding: 9px 40px; border-top: 1px solid var(--border); display: flex; gap: 24px; font-size: 10px; color: var(--text-dim); background: var(--bg2); }
+.status-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--teal); margin-right: 5px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+@keyframes flash { 0%{opacity:0.4} 100%{opacity:1} }
+.flash { animation: flash 0.3s ease-out; }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-mark"></div>
+      <div>
+        <div class="logo-text">天禧<span>Claw</span> · 收益模拟器 <span style="font-size:12px;color:var(--text-dim);font-weight:400">v2</span></div>
+        <div class="header-sub">正式上线后付费用户分布 × 成本收益 × 降本分析</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <span style="font-size:11px;color:var(--text-dim);">定价模式</span>
+      <div class="price-toggle">
+        <button id="btn-promo" class="active" onclick="setPriceMode('promo')">推广价</button>
+        <button id="btn-list" onclick="setPriceMode('list')">刊例价</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- KPI -->
+  <div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-label">月总收入</div><div class="kpi-value neutral" id="kpi-revenue">¥0</div><div class="kpi-sub" id="kpi-revenue-sub">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">月总成本</div><div class="kpi-value neutral" id="kpi-cost">¥0</div><div class="kpi-sub" id="kpi-cost-sub">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">月净利润</div><div class="kpi-value" id="kpi-profit">¥0</div><div class="kpi-sub" id="kpi-profit-sub">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">综合利润率</div><div class="kpi-value" id="kpi-margin">0%</div><div class="kpi-sub" id="kpi-margin-sub">—</div></div>
+  </div>
+
+  <!-- MID ROW -->
+  <div class="mid-row">
+    <div class="panel">
+      <div class="panel-title">用户分布配置</div>
+      <div class="total-users">
+        <label>总用户数</label>
+        <input type="number" id="total-users" value="10000" min="1" max="10000000" step="100" oninput="onTotalChange()">
+      </div>
+      <div class="tier-sliders">
+        <div class="tier-row">
+          <div class="tier-header"><span class="tier-name"><span class="tier-dot" style="background:var(--trial)"></span>体验版</span><span class="tier-pct" id="pct-trial">30%</span></div>
+          <input type="range" id="range-trial" class="range-trial" min="0" max="100" value="30" oninput="onSliderChange('trial')">
+          <div class="tier-count" id="count-trial">3,000 用户 · 免费</div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-header"><span class="tier-name"><span class="tier-dot" style="background:var(--basic)"></span>基础版</span><span class="tier-pct" id="pct-basic">50%</span></div>
+          <input type="range" id="range-basic" class="range-basic" min="0" max="100" value="50" oninput="onSliderChange('basic')">
+          <div class="tier-count" id="count-basic">5,000 用户 · ¥97/月</div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-header"><span class="tier-name"><span class="tier-dot" style="background:var(--expert)"></span>专家版</span><span class="tier-pct" id="pct-expert">15%</span></div>
+          <input type="range" id="range-expert" class="range-expert" min="0" max="100" value="15" oninput="onSliderChange('expert')">
+          <div class="tier-count" id="count-expert">1,500 用户 · ¥190/月</div>
+        </div>
+        <div class="tier-row">
+          <div class="tier-header"><span class="tier-name"><span class="tier-dot" style="background:var(--master)"></span>大师版</span><span class="tier-pct" id="pct-master">5%</span></div>
+          <input type="range" id="range-master" class="range-master" min="0" max="100" value="5" oninput="onSliderChange('master')">
+          <div class="tier-count" id="count-master">500 用户 · ¥399/月</div>
+        </div>
+      </div>
+      <!-- Pricing config -->
+      <div class="pricing-section">
+        <div class="pricing-section-title">定价配置（可编辑）</div>
+        <div class="pricing-grid">
+          <div class="pricing-grid-header">档位</div>
+          <div class="pricing-grid-header">推广价</div>
+          <div class="pricing-grid-header">刊例价</div>
+          <div class="pricing-grid-header">月成本</div>
+          <div class="pricing-tier-name"><span class="tier-dot" style="background:var(--trial)"></span>体验版</div>
+          <input class="price-input" id="price-trial-promo" type="number" value="0" min="0" oninput="recalc()">
+          <input class="price-input" id="price-trial-list" type="number" value="0" min="0" oninput="recalc()">
+          <div class="price-readonly" id="cost-trial">32.85</div>
+          <div class="pricing-tier-name"><span class="tier-dot" style="background:var(--basic)"></span>基础版</div>
+          <input class="price-input" id="price-basic-promo" type="number" value="97" min="0" oninput="recalc()">
+          <input class="price-input" id="price-basic-list" type="number" value="291" min="0" oninput="recalc()">
+          <div class="price-readonly" id="cost-basic">87.11</div>
+          <div class="pricing-tier-name"><span class="tier-dot" style="background:var(--expert)"></span>专家版</div>
+          <input class="price-input" id="price-expert-promo" type="number" value="190" min="0" oninput="recalc()">
+          <input class="price-input" id="price-expert-list" type="number" value="570" min="0" oninput="recalc()">
+          <div class="price-readonly" id="cost-expert">170.59</div>
+          <div class="pricing-tier-name"><span class="tier-dot" style="background:var(--master)"></span>大师版</div>
+          <input class="price-input" id="price-master-promo" type="number" value="399" min="0" oninput="recalc()">
+          <input class="price-input" id="price-master-list" type="number" value="1197" min="0" oninput="recalc()">
+          <div class="price-readonly" id="cost-master">358.42</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">收入 vs 成本构成（按档位）</div>
+      <div class="chart-wrap"><canvas id="costChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ROW 1 -->
+  <div class="bottom-row1">
+    <div class="panel">
+      <div class="panel-title">各档位明细</div>
+      <table>
+        <thead><tr><th>档位</th><th>用户数</th><th>月收入</th><th>月成本</th><th>净利润</th><th>利润率</th></tr></thead>
+        <tbody id="detail-table"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="panel-title">盈亏平衡分析</div>
+      <div class="be-top">
+        <div>
+          <div class="be-number" id="be-pct">—</div>
+          <div class="be-desc" id="be-desc">体验版用户占比上限</div>
+        </div>
+        <div class="be-chart-wrap"><canvas id="beChart"></canvas></div>
+      </div>
+      <div class="formula-box">
+        <div class="formula-title">平衡点公式</div>
+        <span class="formula-highlight">平衡点</span> = <span class="formula-var">C_paid</span> / (<span class="formula-var">C_paid</span> + <span class="formula-var">C_trial</span>)<br>
+        <span class="formula-var">C_paid</span> = Σ 档位权重 × (售价 − 成本) &nbsp;<span style="color:var(--text-dim);font-size:10px">← 付费用户加权净贡献</span><br>
+        <span class="formula-var">C_trial</span> = <span id="formula-trial-cost">32.85</span> &nbsp;<span style="color:var(--text-dim);font-size:10px">← 体验版单用户成本</span><br>
+        <div style="margin-top:8px;font-family:'Noto Sans SC',sans-serif;font-size:10px;color:var(--text-dim);">
+          影响平衡点的变量：售价↑ → 平衡点↑ &nbsp;|&nbsp; 成本↑ → 平衡点↓ &nbsp;|&nbsp; 高价档占比↑ → 平衡点↑ &nbsp;|&nbsp; 体验版成本↑ → 平衡点↓
+        </div>
+      </div>
+      <div class="insight-grid">
+        <div class="insight-item"><div class="insight-label">付费用户加权净贡献</div><div class="insight-val" id="ins-cpaid">—</div></div>
+        <div class="insight-item"><div class="insight-label">每付费用户平均收入</div><div class="insight-val" id="ins-arpu">—</div></div>
+        <div class="insight-item"><div class="insight-label">当前付费用户占比</div><div class="insight-val" id="ins-paid-pct">—</div></div>
+        <div class="insight-item"><div class="insight-label">Token 总消耗/月</div><div class="insight-val" id="ins-tokens">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM ROW 2: Cost reduction -->
+  <div class="bottom-row2">
+    <div class="panel">
+      <div class="panel-title">成本构成总览</div>
+      <div class="cost-pie-wrap"><canvas id="pieChart"></canvas></div>
+      <div style="margin-top:12px;font-size:10px;color:var(--text-dim);text-align:center" id="pie-total-label">月总成本 ¥—</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">降本模拟</div>
+      <div class="reduction-sliders">
+        <div class="reduction-row">
+          <div class="reduction-header">
+            <span class="reduction-label">Token 单价调整</span>
+            <span class="reduction-val" id="token-price-label">¥3.26/百万（基准）</span>
+          </div>
+          <input type="range" id="range-token" class="range-token" min="50" max="100" value="100" oninput="onReductionChange()">
+          <div class="reduction-sub" id="token-discount-sub">降本 0%，当前系数 1.00×</div>
+        </div>
+        <div class="reduction-row">
+          <div class="reduction-header">
+            <span class="reduction-label">其他成本调整</span>
+            <span class="reduction-val" id="other-price-label">基准（100%）</span>
+          </div>
+          <input type="range" id="range-other" class="range-other" min="50" max="100" value="100" oninput="onReductionChange()">
+          <div class="reduction-sub" id="other-discount-sub">降本 0%，当前系数 1.00×</div>
+        </div>
+      </div>
+      <div class="savings-box">
+        <div><div class="savings-item-label">月节省成本</div><div class="savings-item-val" id="savings-amount">¥0</div></div>
+        <div><div class="savings-item-label">利润率提升</div><div class="savings-item-val" id="savings-margin">+0.0%</div></div>
+        <div><div class="savings-item-label">降本后月总成本</div><div class="savings-item-val" id="savings-new-cost" style="color:var(--text)">¥—</div></div>
+        <div><div class="savings-item-label">降本后利润率</div><div class="savings-item-val" id="savings-new-margin" style="color:var(--text)">—</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span><span class="status-dot"></span>实时计算</span>
+  <span id="status-mode">定价模式：推广价</span>
+  <span id="status-users">总用户：10,000</span>
+  <span id="status-time"></span>
+</div>
+
+<script>
+const BASE_TIERS = {
+  trial:  { name:'体验版', tokens:200,  baseCost:32.85,  baseTokenCost:6.52,  serverCost:24.50, baseOtherCost:1.83,  color:'#7c6af7' },
+  basic:  { name:'基础版', tokens:1500, baseCost:87.11,  baseTokenCost:48.90, serverCost:24.50, baseOtherCost:13.71, color:'#00d4aa' },
+  expert: { name:'专家版', tokens:3500, baseCost:170.59, baseTokenCost:114.10,serverCost:24.50, baseOtherCost:31.99, color:'#ffd166' },
+  master: { name:'大师版', tokens:8000, baseCost:358.42, baseTokenCost:260.80,serverCost:24.50, baseOtherCost:73.12, color:'#ff9f43' }
+};
+const KEYS = ['trial','basic','expert','master'];
+let priceMode = 'promo';
+let pcts = { trial:30, basic:50, expert:15, master:5 };
+let totalUsers = 10000;
+let tokenDiscount = 1.0;
+let otherDiscount = 1.0;
+
+function getTierData(k) {
+  const b = BASE_TIERS[k];
+  const tokenCost = b.baseTokenCost * tokenDiscount;
+  const otherCost = b.baseOtherCost * otherDiscount;
+  const cost = tokenCost + b.serverCost + otherCost;
+  const promo = parseFloat(document.getElementById('price-'+k+'-promo').value) || 0;
+  const list  = parseFloat(document.getElementById('price-'+k+'-list').value)  || 0;
+  return { ...b, tokenCost, otherCost, cost, promo, list };
+}
+
+// --- Charts ---
+const costCtx = document.getElementById('costChart').getContext('2d');
+const costChart = new Chart(costCtx, {
+  type: 'bar',
+  data: {
+    labels: ['体验版','基础版','专家版','大师版'],
+    datasets: [
+      { label:'Token成本', data:[0,0,0,0], backgroundColor:'rgba(124,106,247,0.85)', borderWidth:0, stack:'cost' },
+      { label:'服务器成本', data:[0,0,0,0], backgroundColor:'rgba(0,212,170,0.7)', borderWidth:0, stack:'cost' },
+      { label:'其他成本', data:[0,0,0,0], backgroundColor:'rgba(255,209,102,0.7)', borderWidth:0, stack:'cost' },
+      { label:'收入', data:[0,0,0,0], backgroundColor:'rgba(255,159,67,0.35)', borderWidth:1, borderColor:'rgba(255,159,67,0.8)', stack:'revenue' }
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    plugins: {
+      legend:{ labels:{ color:'#9aa5be', font:{family:'DM Mono',size:11}, boxWidth:10 } },
+      tooltip:{ backgroundColor:'#161d30', borderColor:'#1e2a42', borderWidth:1, titleColor:'#e8edf5', bodyColor:'#9aa5be',
+        callbacks:{ label: c => ' '+c.dataset.label+': \u00a5'+fmt(c.raw) } }
+    },
+    scales: {
+      x:{ grid:{color:'rgba(30,42,66,0.5)'}, ticks:{color:'#6b7a99',font:{family:'Noto Sans SC',size:12}} },
+      y:{ grid:{color:'rgba(30,42,66,0.5)'}, ticks:{color:'#6b7a99',font:{family:'DM Mono',size:11}, callback:v=>'\u00a5'+fmtK(v)} }
+    }
+  }
+});
+
+const beCtx = document.getElementById('beChart').getContext('2d');
+const beChart = new Chart(beCtx, {
+  type: 'doughnut',
+  data: { labels:['\u4f53\u9a8c\u7248','\u4ed8\u8d39\u7528\u6237'], datasets:[{ data:[30,70], backgroundColor:['rgba(255,107,107,0.7)','rgba(0,212,170,0.7)'], borderWidth:0, hoverOffset:4 }] },
+  options: {
+    responsive:true, maintainAspectRatio:false, cutout:'68%',
+    plugins: {
+      legend:{ display:false },
+      tooltip:{ backgroundColor:'#161d30', borderColor:'#1e2a42', borderWidth:1, titleColor:'#e8edf5', bodyColor:'#9aa5be',
+        callbacks:{ label: c => ' '+c.label+': '+c.raw+'%' } }
+    }
+  },
+  plugins:[{
+    id:'centerText',
+    afterDraw(chart){
+      const {ctx,chartArea:{top,bottom,left,right}}=chart;
+      const cx=(left+right)/2, cy=(top+bottom)/2;
+      ctx.save();
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='bold 13px DM Mono';
+      ctx.fillStyle='#9aa5be';
+      ctx.fillText(chart._beLabel||'', cx, cy);
+      ctx.restore();
+    }
+  }]
+});
+
+const pieCtx = document.getElementById('pieChart').getContext('2d');
+const pieChart = new Chart(pieCtx, {
+  type: 'doughnut',
+  data: { labels:['Token\u6210\u672c','\u670d\u52a1\u5668\u6210\u672c','\u5176\u4ed6\u6210\u672c'], datasets:[{ data:[0,0,0], backgroundColor:['rgba(124,106,247,0.85)','rgba(0,212,170,0.7)','rgba(255,209,102,0.7)'], borderWidth:0, hoverOffset:4 }] },
+  options: {
+    responsive:true, maintainAspectRatio:false, cutout:'60%',
+    plugins: {
+      legend:{ position:'right', labels:{ color:'#9aa5be', font:{family:'Noto Sans SC',size:11}, boxWidth:10, padding:10 } },
+      tooltip:{ backgroundColor:'#161d30', borderColor:'#1e2a42', borderWidth:1, titleColor:'#e8edf5', bodyColor:'#9aa5be',
+        callbacks:{ label: c => ' '+c.label+': \u00a5'+fmt(c.raw)+' ('+c.parsed.toFixed(1)+'%)' } }
+    }
+  }
+});
+
+// --- Helpers ---
+function fmt(n){ return Math.round(n).toLocaleString('zh-CN'); }
+function fmtK(n){ if(Math.abs(n)>=10000) return (n/10000).toFixed(1)+'\u4e07'; return fmt(n); }
+function fmtDec(n){ return n.toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function setPriceMode(mode){
+  priceMode=mode;
+  document.getElementById('btn-promo').classList.toggle('active',mode==='promo');
+  document.getElementById('btn-list').classList.toggle('active',mode==='list');
+  document.getElementById('status-mode').textContent='\u5b9a\u4ef7\u6a21\u5f0f\uff1a'+(mode==='promo'?'\u63a8\u5e7f\u4ef7':'\u520a\u4f8b\u4ef7');
+  recalc();
+}
+
+function onTotalChange(){
+  totalUsers=parseInt(document.getElementById('total-users').value)||0;
+  document.getElementById('status-users').textContent='\u603b\u7528\u6237\uff1a'+fmt(totalUsers);
+  recalc();
+}
+
+function onSliderChange(key){
+  const val=parseInt(document.getElementById('range-'+key).value);
+  pcts[key]=val;
+  const others=KEYS.filter(k=>k!==key);
+  const otherSum=others.reduce((s,k)=>s+pcts[k],0);
+  const remaining=100-val;
+  if(otherSum>0){
+    let dist=0;
+    others.forEach((k,i)=>{
+      if(i===others.length-1){ pcts[k]=Math.max(0,remaining-dist); }
+      else{ const s=Math.round((pcts[k]/otherSum)*remaining); pcts[k]=Math.max(0,s); dist+=pcts[k]; }
+    });
+  } else {
+    const each=Math.floor(remaining/3);
+    others.forEach((k,i)=>{ pcts[k]=i===2?(remaining-each*2):each; });
+  }
+  let total=KEYS.reduce((s,k)=>s+pcts[k],0);
+  if(total!==100){ pcts[key]+=100-total; pcts[key]=Math.max(0,pcts[key]); }
+  updateSliders(); recalc();
+}
+
+function updateSliders(){
+  KEYS.forEach(k=>{
+    const r=document.getElementById('range-'+k);
+    r.value=pcts[k];
+    r.style.background='linear-gradient(to right, '+BASE_TIERS[k].color+' '+pcts[k]+'%, #1e2a42 '+pcts[k]+'%)';
+    document.getElementById('pct-'+k).textContent=pcts[k]+'%';
+  });
+}
+
+function onReductionChange(){
+  tokenDiscount=parseInt(document.getElementById('range-token').value)/100;
+  otherDiscount=parseInt(document.getElementById('range-other').value)/100;
+  const tPct=Math.round((1-tokenDiscount)*100);
+  const oPct=Math.round((1-otherDiscount)*100);
+  document.getElementById('token-price-label').textContent='\u00a5'+(3.26*tokenDiscount).toFixed(2)+'/\u767e\u4e07';
+  document.getElementById('token-discount-sub').textContent='\u964d\u672c '+tPct+'%\uff0c\u5f53\u524d\u7cfb\u6570 '+tokenDiscount.toFixed(2)+'\u00d7';
+  document.getElementById('other-price-label').textContent='\u5f53\u524d '+(otherDiscount*100).toFixed(0)+'%';
+  document.getElementById('other-discount-sub').textContent='\u964d\u672c '+oPct+'%\uff0c\u5f53\u524d\u7cfb\u6570 '+otherDiscount.toFixed(2)+'\u00d7';
+  // update cost readonly cells
+  KEYS.forEach(k=>{
+    const t=getTierData(k);
+    document.getElementById('cost-'+k).textContent=fmtDec(t.cost);
+  });
+  recalc();
+}
+
+function recalc(){
+  const p=priceMode;
+  let totalRev=0, totalCost=0, totalBaseCost=0;
+  let totalToken=0, totalServer=0, totalOther=0;
+  const rows=[];
+  const cToken=[],cServer=[],cOther=[],cRev=[];
+
+  KEYS.forEach(k=>{
+    const t=getTierData(k);
+    const n=Math.round(totalUsers*pcts[k]/100);
+    const rev=n*t[p], cost=n*t.cost, profit=rev-cost;
+    const margin=rev>0?profit/rev*100:null;
+    totalRev+=rev; totalCost+=cost;
+    // base cost (no discount) for savings calc
+    const baseCostPerUser=BASE_TIERS[k].baseTokenCost+BASE_TIERS[k].serverCost+BASE_TIERS[k].baseOtherCost;
+    totalBaseCost+=n*baseCostPerUser;
+    totalToken+=n*t.tokenCost; totalServer+=n*t.serverCost; totalOther+=n*t.otherCost;
+    rows.push({key:k,name:t.name,n,rev,cost,profit,margin,color:BASE_TIERS[k].color});
+    cToken.push(n*t.tokenCost); cServer.push(n*t.serverCost); cOther.push(n*t.otherCost); cRev.push(rev);
+    const pl=t[p]>0?'\u00a5'+t[p]+'/\u6708':'\u514d\u8d39';
+    document.getElementById('count-'+k).textContent=fmt(n)+' \u7528\u6237 \u00b7 '+pl;
+  });
+
+  const profit=totalRev-totalCost;
+  const margin=totalRev>0?profit/totalRev*100:null;
+
+  setKPI('kpi-revenue','\u00a5'+fmtK(totalRev),'neutral','\u6708\u5ea6\u603b\u6536\u5165');
+  setKPI('kpi-cost','\u00a5'+fmtK(totalCost),'neutral','\u6708\u5ea6\u603b\u6210\u672c');
+  setKPI('kpi-profit',(profit>=0?'\u00a5':'-\u00a5')+fmtK(Math.abs(profit)),profit>=0?'positive':'negative',profit>=0?'\u76c8\u5229\u72b6\u6001':'\u4e8f\u635f\u72b6\u6001');
+  setKPI('kpi-margin',margin!==null?margin.toFixed(1)+'%':'\u2014',margin!==null&&margin>=0?'positive':'negative',margin!==null?'\u6536\u5165\u8986\u76d6\u6210\u672c\u6bd4':'\u65e0\u6536\u5165');
+
+  // Table
+  let html='';
+  rows.forEach(r=>{
+    const cls=r.profit>=0?'profit-pos':'profit-neg';
+    html+='<tr><td><span class="tier-dot" style="background:'+r.color+'"></span>'+r.name+'</td><td>'+fmt(r.n)+'</td><td>\u00a5'+fmt(r.rev)+'</td><td>\u00a5'+fmt(r.cost)+'</td><td class="'+cls+'">'+(r.profit>=0?'\u00a5':'-\u00a5')+fmt(Math.abs(r.profit))+'</td><td class="'+cls+'">'+(r.margin!==null?r.margin.toFixed(1)+'%':'\u2014')+'</td></tr>';
+  });
+  const tcls=profit>=0?'profit-pos':'profit-neg';
+  html+='<tr style="border-top:1px solid var(--border);font-weight:500"><td>\u5408\u8ba1</td><td>'+fmt(totalUsers)+'</td><td>\u00a5'+fmt(totalRev)+'</td><td>\u00a5'+fmt(totalCost)+'</td><td class="'+tcls+'">'+(profit>=0?'\u00a5':'-\u00a5')+fmt(Math.abs(profit))+'</td><td class="'+tcls+'">'+(margin!==null?margin.toFixed(1)+'%':'\u2014')+'</td></tr>';
+  document.getElementById('detail-table').innerHTML=html;
+
+  // Cost chart
+  costChart.data.datasets[0].data=cToken;
+  costChart.data.datasets[1].data=cServer;
+  costChart.data.datasets[2].data=cOther;
+  costChart.data.datasets[3].data=cRev;
+  costChart.update('none');
+
+  // Breakeven
+  const paidKeys=['basic','expert','master'];
+  const paidSum=paidKeys.reduce((s,k)=>s+pcts[k],0);
+  let beMax=null, cPaid=0;
+  if(paidSum>0){
+    cPaid=paidKeys.reduce((s,k)=>{
+      const t=getTierData(k);
+      return s+(pcts[k]/paidSum)*(t[p]-t.cost);
+    },0);
+    const trialCost=getTierData('trial').cost;
+    document.getElementById('formula-trial-cost').textContent=fmtDec(trialCost);
+    if(cPaid+trialCost>0) beMax=cPaid/(cPaid+trialCost)*100;
+  }
+  const isOver=beMax!==null&&pcts.trial>beMax;
+  const beEl=document.getElementById('be-pct');
+  beEl.textContent=beMax!==null?beMax.toFixed(1)+'%':'\u2014';
+  beEl.className='be-number'+(isOver?' danger':'');
+  document.getElementById('be-desc').textContent=beMax!==null
+    ?(isOver?'\u26a0\ufe0f \u5f53\u524d\u4f53\u9a8c\u7248\u5360\u6bd4\u5df2\u8d85\u8fc7\u5e73\u8861\u70b9\uff01':'\u4f53\u9a8c\u7248\u5360\u6bd4\u4e0d\u8d85\u8fc7\u6b64\u6bd4\u4f8b\u53ef\u4fdd\u672c')
+    :'\u65e0\u4ed8\u8d39\u7528\u6237\uff0c\u65e0\u6cd5\u8ba1\u7b97';
+
+  // Doughnut chart
+  const trialPct=pcts.trial;
+  const paidPct=100-trialPct;
+  const trialColor=isOver?'rgba(255,107,107,0.8)':'rgba(124,106,247,0.7)';
+  beChart.data.datasets[0].data=[trialPct,paidPct];
+  beChart.data.datasets[0].backgroundColor=[trialColor,'rgba(0,212,170,0.7)'];
+  beChart._beLabel=beMax!==null?'\u5e73\u8861\u70b9\n'+beMax.toFixed(1)+'%':'';
+  beChart.update('none');
+
+  // Insights
+  const paidUsers=rows.filter(r=>r.key!=='trial').reduce((s,r)=>s+r.n,0);
+  const paidRev=rows.filter(r=>r.key!=='trial').reduce((s,r)=>s+r.rev,0);
+  document.getElementById('ins-cpaid').textContent=paidSum>0?'\u00a5'+fmtDec(cPaid)+'/\u7528\u6237':'\u2014';
+  document.getElementById('ins-arpu').textContent=paidUsers>0?'\u00a5'+fmtDec(paidRev/paidUsers)+'/\u6708':'\u2014';
+  document.getElementById('ins-paid-pct').textContent=totalUsers>0?((paidUsers/totalUsers*100).toFixed(1)+'%'):'\u2014';
+  const totalTokens=KEYS.reduce((s,k)=>s+Math.round(totalUsers*pcts[k]/100)*BASE_TIERS[k].tokens,0);
+  document.getElementById('ins-tokens').textContent=fmtK(totalTokens)+'\u4e07';
+
+  // Pie chart
+  pieChart.data.datasets[0].data=[totalToken,totalServer,totalOther];
+  pieChart.update('none');
+  document.getElementById('pie-total-label').textContent='\u6708\u603b\u6210\u672c \u00a5'+fmtK(totalCost);
+
+  // Savings
+  const savings=totalBaseCost-totalCost;
+  const baseProfit=totalRev-totalBaseCost;
+  const baseMargin=totalRev>0?baseProfit/totalRev*100:null;
+  const marginDiff=margin!==null&&baseMargin!==null?margin-baseMargin:null;
+  document.getElementById('savings-amount').textContent=savings>0?'\u00a5'+fmtK(savings):'\u00a50';
+  document.getElementById('savings-margin').textContent=marginDiff!==null?(marginDiff>=0?'+':'')+marginDiff.toFixed(1)+'%':'\u2014';
+  document.getElementById('savings-new-cost').textContent='\u00a5'+fmtK(totalCost);
+  document.getElementById('savings-new-margin').textContent=margin!==null?margin.toFixed(1)+'%':'\u2014';
+}
+
+function setKPI(id,val,cls,sub){
+  const el=document.getElementById(id);
+  el.textContent=val; el.className='kpi-value '+cls;
+  el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),300);
+  const s=document.getElementById(id+'-sub'); if(s) s.textContent=sub;
+}
+
+function updateTime(){ document.getElementById('status-time').textContent=new Date().toLocaleTimeString('zh-CN'); }
+setInterval(updateTime,1000); updateTime();
+updateSliders(); recalc();
+</script>
+</body>
+</html>

@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天禧Claw 定价模拟�?V8</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg-primary: #080c14;
+    --bg-secondary: #0d1421;
+    --bg-card: #111827;
+    --bg-card-hover: #1a2235;
+    --border: #1e2d4a;
+    --border-bright: #2d4471;
+    --accent: #4fc3f7;
+    --accent-dim: rgba(79, 195, 247, 0.15);
+    --text-primary: #e8edf5;
+    --text-secondary: #8899bb;
+    --text-muted: #4a5a7a;
+    --tier-purple: #a78bfa;
+    --tier-green: #34d399;
+    --tier-yellow: #fbbf24;
+    --tier-orange: #fb923c;
+    --profit-pos: #34d399;
+    --profit-neg: #f87171;
+    --warn-bg: rgba(251, 191, 36, 0.15);
+    --warn-text: #fbbf24;
+    --danger-bg: rgba(248, 113, 113, 0.15);
+    --danger-text: #f87171;
+    --success-bg: rgba(52, 211, 153, 0.15);
+    --success-text: #34d399;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-cn: 'Noto Sans SC', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-cn);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(79, 195, 247, 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(167, 139, 250, 0.04) 0%, transparent 50%);
+  }
+  .container { max-width: 1600px; margin: 0 auto; padding: 24px 32px 64px; }
+
+  /* ─── HEADER ─── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    animation: fadeDown 0.5s ease-out;
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .header-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    background: linear-gradient(135deg, var(--accent) 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .badge {
+    font-size: 11px;
+    font-family: var(--font-mono);
+    padding: 3px 8px;
+    background: var(--accent-dim);
+    border: 1px solid rgba(79, 195, 247, 0.3);
+    border-radius: 4px;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+  }
+  .btn-export {
+    font-family: var(--font-cn);
+    font-size: 13px;
+    padding: 7px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-bright);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-export:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+  /* ─── KPI ROW ─── */
+  .kpi-section { margin-bottom: 24px; animation: fadeUp 0.5s ease-out 0.1s both; }
+  .user-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .user-row label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .user-row input[type="number"] {
+    width: 100px;
+    padding: 6px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-bright);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 14px;
+  }
+  .user-row input:focus { outline: none; border-color: var(--accent); }
+  .ratio-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; flex: 1; }
+  .ratio-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .ratio-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .ratio-item input[type="range"] {
+    width: 80px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .ratio-pct {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-secondary);
+    min-width: 36px;
+    text-align: right;
+  }
+  .ratio-name { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .kpi-card:hover { border-color: var(--border-bright); transform: translateY(-1px); }
+  .kpi-card:hover::before { opacity: 1; }
+  .kpi-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .kpi-value {
+    font-family: var(--font-mono);
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+  .kpi-value.positive { color: var(--profit-pos); }
+  .kpi-value.negative { color: var(--profit-neg); }
+  .kpi-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    font-family: var(--font-mono);
+  }
+
+  /* ─── SECTION LABELS ─── */
+  .section-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ─── MAIN GRID ─── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 20px;
+    animation: fadeUp 0.5s ease-out 0.2s both;
+  }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 22px 24px;
+  }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    width: 3px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  /* ─── TIER CONFIG ─── */
+  .tier-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  .tier-table th {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--text-muted);
+    padding: 0 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .tier-table th:first-child { padding-left: 0; }
+  .tier-row td {
+    padding: 8px 6px;
+    border-bottom: 1px solid rgba(30, 45, 74, 0.5);
+    vertical-align: middle;
+    font-size: 13px;
+  }
+  .tier-row:last-child td { border-bottom: none; }
+  .tier-row:hover { background: rgba(79, 195, 247, 0.02); }
+  .tier-name-cell { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .tier-diamond {
+    width: 10px; height: 10px;
+    transform: rotate(45deg);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .tier-name-text { font-weight: 500; }
+  .tier-input {
+    width: 72px;
+    padding: 5px 7px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-bright);
+    border-radius: 5px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    text-align: right;
+  }
+  .tier-input:focus { outline: none; border-color: var(--accent); }
+  .tier-info {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .tier-profit {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .tier-profit.pos { color: var(--profit-pos); }
+  .tier-profit.neg { color: var(--profit-neg); }
+
+  /* ─── GLOBAL PARAMS ─── */
+  .params-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 20px 0;
+  }
+  .params-title {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    margin-bottom: 14px;
+  }
+  .params-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .param-item { display: flex; flex-direction: column; gap: 6px; }
+  .param-label { font-size: 11px; color: var(--text-muted); }
+  .param-label span { color: var(--text-secondary); margin-left: 4px; }
+  .param-input {
+    padding: 7px 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-bright);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    width: 100%;
+  }
+  .param-input:focus { outline: none; border-color: var(--accent); }
+  .param-slider {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+    height: 4px;
+  }
+  .slider-row { display: flex; align-items: center; gap: 8px; }
+  .slider-val {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    min-width: 42px;
+    text-align: right;
+  }
+
+  /* ─── CHART ─── */
+  .chart-container { position: relative; height: 300px; margin-bottom: 16px; }
+  .chart-note {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    border: 1px dashed var(--border-bright);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin-bottom: 12px;
+    font-family: var(--font-mono);
+  }
+
+  /* ─── COMPETITOR TABLE ─── */
+  .comp-table-wrap { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .comp-table-wrap::-webkit-scrollbar { width: 4px; }
+  .comp-table-wrap::-webkit-scrollbar-track { background: var(--bg-secondary); }
+  .comp-table-wrap::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+  .comp-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .comp-table th {
+    position: sticky; top: 0;
+    background: var(--bg-secondary);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--text-muted);
+    padding: 8px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    z-index: 1;
+  }
+  .comp-table td { padding: 6px 10px; border-bottom: 1px solid rgba(30, 45, 74, 0.4); vertical-align: middle; }
+  .comp-table tr:last-child td { border-bottom: none; }
+  .comp-table tr:hover td { background: rgba(79, 195, 247, 0.03); }
+  .comp-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; vertical-align: middle; }
+  .comp-table input[type="text"] {
+    width: 130px;
+    padding: 4px 6px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: var(--font-cn);
+    font-size: 12px;
+  }
+  .comp-table input[type="text"]:focus { outline: none; border-color: var(--accent); }
+  .comp-table input[type="number"] {
+    width: 70px;
+    padding: 4px 6px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-align: right;
+  }
+  .comp-table input[type="number"]:focus { outline: none; border-color: var(--accent); }
+  .btn-del {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 6px;
+    font-size: 14px;
+    line-height: 1;
+    transition: all 0.15s;
+  }
+  .btn-del:hover { border-color: var(--profit-neg); color: var(--profit-neg); background: var(--danger-bg); }
+  .btn-add-row {
+    width: 100%;
+    padding: 7px;
+    background: none;
+    border: 1px dashed var(--border-bright);
+    border-radius: 6px;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font-cn);
+    margin-top: 8px;
+  }
+  .btn-add-row:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+  /* ─── PART 2 ─── */
+  .part2-card { animation: fadeUp 0.5s ease-out 0.3s both; }
+  .target-margin-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .target-margin-row label { font-size: 13px; color: var(--text-secondary); white-space: nowrap; }
+  .target-margin-row input[type="range"] { flex: 1; min-width: 200px; accent-color: var(--accent); cursor: pointer; }
+  .target-margin-val {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 60px;
+  }
+
+  /* ─── REVERSE TABLE ─── */
+  .reverse-table-wrap { overflow-x: auto; margin-bottom: 20px; }
+  .reverse-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 900px; }
+  .reverse-table th {
+    background: var(--bg-secondary);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    padding: 8px 10px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  .reverse-table th:first-child { text-align: left; }
+  .reverse-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid rgba(30, 45, 74, 0.4);
+    text-align: right;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .reverse-table td:first-child {
+    text-align: left;
+    font-family: var(--font-cn);
+    font-weight: 500;
+  }
+  .reverse-table tr:last-child td { border-bottom: none; }
+  .reverse-table tr:hover td { background: rgba(79, 195, 247, 0.02); }
+  .cell-green { background: rgba(52, 211, 153, 0.12) !important; color: var(--success-text) !important; border-radius: 3px; }
+  .cell-yellow { background: rgba(251, 191, 36, 0.10) !important; color: var(--warn-text) !important; border-radius: 3px; }
+  .cell-red { background: rgba(248, 113, 113, 0.10) !important; color: var(--danger-text) !important; border-radius: 3px; }
+  .profit-pos { color: var(--profit-pos); font-weight: 600; }
+  .profit-neg { color: var(--profit-neg); font-weight: 600; }
+  .tier-dot-sm { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: middle; }
+
+  /* ─── CONCLUSION ─── */
+  .conclusion {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-secondary);
+  }
+  .conclusion strong { color: var(--text-primary); }
+  .conclusion .ok { color: var(--success-text); font-weight: 600; }
+  .conclusion .warn { color: var(--warn-text); font-weight: 600; }
+  .conclusion .danger { color: var(--danger-text); font-weight: 600; }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 1200px) {
+    .main-grid { grid-template-columns: 1fr; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .params-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 700px) {
+    .container { padding: 16px; }
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-primary); }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <span class="header-title">天禧Claw 定价模拟�?/span>
+      <span class="badge">V8.1</span>
+    </div>
+    <button class="btn-export" onclick="exportJSON()">📥 导出 JSON</button>
+  </div>
+
+  <!-- KPI SECTION -->
+  <div class="kpi-section">
+    <div class="user-row">
+      <label>用户分布（仅影响KPI加权�?/label>
+      <div class="ratio-group">
+        <div class="ratio-item">
+          <span class="ratio-dot" style="background:#34d399"></span>
+          <span class="ratio-name">基础�?/span>
+          <input type="range" id="ratio1" value="50" min="0" max="100" oninput="onRatioChange(1)">
+          <span class="ratio-pct" id="ratioPct1">50%</span>
+        </div>
+        <div class="ratio-item">
+          <span class="ratio-dot" style="background:#fbbf24"></span>
+          <span class="ratio-name">专家�?/span>
+          <input type="range" id="ratio2" value="30" min="0" max="100" oninput="onRatioChange(2)">
+          <span class="ratio-pct" id="ratioPct2">30%</span>
+        </div>
+        <div class="ratio-item">
+          <span class="ratio-dot" style="background:#fb923c"></span>
+          <span class="ratio-name">大师�?/span>
+          <input type="range" id="ratio3" value="20" min="0" max="100" oninput="onRatioChange(3)">
+          <span class="ratio-pct" id="ratioPct3">20%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">月均收入/用户</div>
+        <div class="kpi-value" id="kpi-revenue">¥0</div>
+        <div class="kpi-sub" id="kpi-revenue-sub">Σ(月价 × 占比)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">月均成本/用户</div>
+        <div class="kpi-value" id="kpi-cost">¥0</div>
+        <div class="kpi-sub" id="kpi-cost-sub">Σ(实际成本 × 占比)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">月均利润/用户</div>
+        <div class="kpi-value" id="kpi-profit">¥0</div>
+        <div class="kpi-sub" id="kpi-profit-sub">收入 �?成本</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">综合利润�?/div>
+        <div class="kpi-value" id="kpi-margin">0%</div>
+        <div class="kpi-sub" id="kpi-margin-sub">利润 / 收入</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PART 1 -->
+  <div class="section-label">PART 1 · 定价</div>
+  <div class="main-grid">
+
+    <!-- LEFT: 档位配置 + 全局参数 -->
+    <div class="card">
+      <div class="card-title">档位配置</div>
+      <table class="tier-table">
+        <thead>
+          <tr>
+            <th>档位</th>
+            <th>月价（元�?/th>
+            <th>能量配额</th>
+            <th>可跑任务</th>
+            <th>利润�?/th>
+          </tr>
+        </thead>
+        <tbody id="tierBody"></tbody>
+      </table>
+
+      <div class="params-divider"></div>
+      <div class="params-title">全局参数</div>
+      <div class="params-grid">
+        <div class="param-item">
+          <div class="param-label">能量 / 标准任务 <span>(默认 1000)</span></div>
+          <input type="number" class="param-input" id="energyPerTask" value="1000" min="1" oninput="recalcAll()">
+        </div>
+        <div class="param-item">
+          <div class="param-label">Token 单价 <span>¥/百万token</span></div>
+          <div class="slider-row">
+            <input type="range" class="param-slider" id="tokenPrice" value="3.26" min="0.5" max="10" step="0.01" oninput="onTokenPriceChange()">
+            <span class="slider-val" id="tokenPriceVal">3.26</span>
+          </div>
+        </div>
+        <div class="param-item">
+          <div class="param-label">用户平均使用�?<span>(默认 50%)</span></div>
+          <div class="slider-row">
+            <input type="range" class="param-slider" id="usageRate" value="50" min="1" max="100" oninput="onUsageRateChange()">
+            <span class="slider-val" id="usageRateVal">50%</span>
+          </div>
+        </div>
+        <div class="param-item">
+          <div class="param-label">VPS 成本 / �?<span>(默认 ¥24.50)</span></div>
+          <input type="number" class="param-input" id="vpsCost" value="24.50" min="0" step="0.01" oninput="recalcAll()">
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: 竞争定位�?+ 竞品配置 -->
+    <div class="card">
+      <div class="card-title">竞争定位�?/div>
+      <div class="chart-note">�?体验�?¥0.99 为参考点，不参与图表缩放</div>
+      <div class="chart-container">
+        <canvas id="scatterChart"></canvas>
+      </div>
+
+      <div class="card-title" style="margin-top:4px">竞品配置</div>
+      <div class="comp-table-wrap">
+        <table class="comp-table">
+          <thead>
+            <tr>
+              <th>颜色</th>
+              <th>竞品名称</th>
+              <th>月定�?¥</th>
+              <th>月任务数</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="compBody"></tbody>
+        </table>
+      </div>
+      <button class="btn-add-row" onclick="addCompetitor()">+ 添加竞品（剩�?<span id="addRemain">0</span> 个槽位）</button>
+    </div>
+
+  </div>
+
+  <!-- PART 2 -->
+  <div class="section-label">PART 2 · 成本压缩要求 & 利润核算</div>
+  <div class="card part2-card">
+    <div class="target-margin-row">
+      <label>目标利润�?/label>
+      <input type="range" id="targetMargin" value="20" min="0" max="40" step="1" oninput="onTargetMarginChange()">
+      <span class="target-margin-val" id="targetMarginVal">20%</span>
+      <span style="font-size:12px;color:var(--text-muted);margin-left:8px">�?影响整个 Part 2 的目标成本计�?/span>
+    </div>
+    <div class="reverse-table-wrap">
+      <table class="reverse-table">
+        <thead>
+          <tr>
+            <th>档位</th>
+            <th>月价</th>
+            <th>能量配额</th>
+            <th>最大任�?/th>
+            <th>实际任务<br>×使用�?/th>
+            <th>Token消�?br>(百万)</th>
+            <th>目标总成�?br>×利润�?/th>
+            <th>扣VPS�?br>Token预算</th>
+            <th>需Token降至<br>(¥/百万)</th>
+            <th>当前利润�?/th>
+          </tr>
+        </thead>
+        <tbody id="reverseBody"></tbody>
+      </table>
+    </div>
+    <div class="conclusion" id="conclusion"></div>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────
+const TIERS = [
+  { id: 'trial', name: '体验版', price: 0.99, color: '#a78bfa', promo: true, energy: 990 },
+  { id: 'basic', name: '基础版', price: 49, color: '#34d399', promo: false, energy: 49000 },
+  { id: 'expert', name: '专家版', price: 99, color: '#fbbf24', promo: false, energy: 99000 },
+  { id: 'master', name: '大师版', price: 199, color: '#fb923c', promo: false, energy: 199000 },
+];
+
+const DEFAULT_COMPETITORS = [
+  { visible: true,  brand: '腾讯 WorkBuddy', name: 'Lite', price: 29, tasks: 40, color: '#74b9ff' },
+  { visible: true,  brand: '腾讯 WorkBuddy', name: '专业版', price: 58, tasks: 100, color: '#74b9ff' },
+  { visible: true,  brand: '腾讯 QClaw', name: '开发者Lite', price: 68, tasks: 40, color: '#00cec9' },
+  { visible: true,  brand: 'QoderWork', name: 'Pro', price: 73, tasks: 40, color: '#a29bfe' },
+  { visible: true,  brand: '腾讯 QClaw', name: '开发者Standard', price: 168, tasks: 160, color: '#00cec9' },
+  { visible: true,  brand: 'Kimi Claw', name: 'Allegretto', price: 199, tasks: 80, color: '#ff6b9d' },
+  { visible: true,  brand: '字节 ArkClaw', name: 'Pro', price: 200, tasks: 1667, color: '#fd7272' },
+  { visible: false, brand: '百度 DuClaw', name: '原价', price: 142, tasks: 1667, color: '#fdcb6e' },
+  { visible: false, brand: '腾讯 WorkBuddy', name: 'CodingPlanPro', price: 199, tasks: 1000, color: '#74b9ff' },
+  { visible: false, brand: 'QoderWork', name: 'Pro+', price: 219, tasks: 120, color: '#a29bfe' },
+  { visible: false, brand: '腾讯 QClaw', name: '开发者Ultra', price: 398, tasks: 480, color: '#00cec9' },
+  { visible: false, brand: 'Kimi Claw', name: 'Allegro', price: 699, tasks: 240, color: '#ff6b9d' },
+  { visible: false, brand: 'QoderWork', name: 'Ultra', price: 730, tasks: 400, color: '#a29bfe' },
+];
+
+let competitors = JSON.parse(JSON.stringify(DEFAULT_COMPETITORS));
+let chart = null;
+
+// ─────────────────────────────────────────
+// CORE FORMULAS
+// ─────────────────────────────────────────
+function calcTier(price, energyPerTask, usageRate, tokenPrice, vpsCost) {
+  const energyQuota  = price * 1000;
+  const maxTasks     = energyPerTask > 0 ? energyQuota / energyPerTask : 0;
+  const actualTasks  = maxTasks * (usageRate / 100);
+  const tokenConsume = actualTasks * 331288 / 1000000; // million tokens
+  const tokenCost    = tokenConsume * tokenPrice;
+  const totalCost    = tokenCost + vpsCost;
+  const profit       = price - totalCost;
+  const margin       = price > 0 ? profit / price : -Infinity;
+  return { energyQuota, maxTasks, actualTasks, tokenConsume, tokenCost, totalCost, profit, margin };
+}
+
+function calcReverse(price, energyPerTask, usageRate, tokenPrice, vpsCost, targetMarginPct) {
+  const energyQuota  = price * 1000;
+  const maxTasks     = energyPerTask > 0 ? energyQuota / energyPerTask : 0;
+  const actualTasks  = maxTasks * (usageRate / 100);
+  const tokenConsume  = actualTasks * 331288 / 1000000;
+  const targetCost    = price * (1 - targetMarginPct / 100);
+  const tokenBudget   = targetCost - vpsCost;
+  const neededTokenPrice = tokenConsume > 0 ? tokenBudget / tokenConsume : 0;
+  const tokenCost     = tokenConsume * tokenPrice;
+  const totalCost     = tokenCost + vpsCost;
+  const profit        = price - totalCost;
+  const margin        = price > 0 ? profit / price : -Infinity;
+  return { energyQuota, maxTasks, actualTasks, tokenConsume, targetCost, tokenBudget, neededTokenPrice, margin };
+}
+
+// ─────────────────────────────────────────
+// RATIO NORMALIZATION
+// ─────────────────────────────────────────
+function onRatioChange(changedIdx) {
+  const sliders = [1, 2, 3].map(i => parseFloat(document.getElementById('ratio'+i).value) || 0);
+  const total = sliders.reduce((a, b) => a + b, 0);
+  if (total === 0) return;
+  // redistribute proportionally, giving the changed one its current value
+  const arrayIdx = changedIdx - 1;
+  const othersTotal = total - sliders[arrayIdx];
+  const othersCapacity = 100 - sliders[arrayIdx];
+  if (othersTotal === 0 || othersCapacity === 0) {
+    recalcAll(); return;
+  }
+  const scale = othersCapacity / othersTotal;
+  const newVals = sliders.map((v, i) => {
+    if (i === arrayIdx) return v;
+    return Math.max(0, Math.round(v * scale * 10) / 10);
+  });
+  // Fix rounding so they sum to 100
+  const s = newVals.reduce((a, b) => a + b, 0);
+  if (Math.abs(s - 100) > 0.5) {
+    // Fallback: equal distribution
+    [1, 2, 3].forEach(i => {
+      document.getElementById('ratio'+i).value = 33.3;
+      document.getElementById('ratioPct'+i).textContent = '33.3%';
+    });
+  } else {
+    // Adjust the changed one to make sum = 100
+    const diff = 100 - newVals.reduce((a,b)=>a+b,0);
+    newVals[arrayIdx] = Math.max(0, newVals[arrayIdx] + diff);
+    [1, 2, 3].forEach(i => {
+      document.getElementById('ratio'+i).value = newVals[i-1];
+      document.getElementById('ratioPct'+i).textContent = newVals[i-1].toFixed(0) + '%';
+    });
+  }
+  recalcAll();
+}
+
+// ─────────────────────────────────────────
+// SLIDER SYNC
+// ─────────────────────────────────────────
+function onTokenPriceChange() {
+  document.getElementById('tokenPriceVal').textContent = parseFloat(document.getElementById('tokenPrice').value).toFixed(2);
+  recalcAll();
+}
+function onUsageRateChange() {
+  document.getElementById('usageRateVal').textContent = document.getElementById('usageRate').value + '%';
+  recalcAll();
+}
+function onTargetMarginChange() {
+  document.getElementById('targetMarginVal').textContent = document.getElementById('targetMargin').value + '%';
+  recalcAll();
+}
+
+// ─────────────────────────────────────────
+// RECALC ALL
+// ─────────────────────────────────────────
+function recalcAll() {
+  const ratios       = [1, 2, 3].map(i => parseFloat(document.getElementById('ratio'+i).value) || 0);
+  const energyPerTask = parseFloat(document.getElementById('energyPerTask').value) || 1000;
+  const usageRate    = parseFloat(document.getElementById('usageRate').value) || 50;
+  const tokenPrice   = parseFloat(document.getElementById('tokenPrice').value) || 3.26;
+  const vpsCost      = parseFloat(document.getElementById('vpsCost').value) || 0;
+  const targetMargin = parseFloat(document.getElementById('targetMargin').value) || 20;
+
+  // Update tier prices from inputs
+  TIERS.forEach((t, i) => {
+    const inp = document.getElementById('tierPrice'+i);
+    if (inp) t.price = parseFloat(inp.value) || 0;
+  });
+
+  // KPI
+  let avgRevenue = 0, avgCost = 0;
+  const tierCalcs = TIERS.map((t, i) => {
+    const c = calcTier(t.price, energyPerTask, usageRate, tokenPrice, vpsCost);
+    if (!t.promo) {
+        const ratio = ratios[i-1] / 100;
+        avgRevenue += t.price * ratio;
+        avgCost    += c.totalCost * ratio;
+    }
+    return c;
+  });
+
+  const avgProfit = avgRevenue - avgCost;
+  const avgMargin = avgRevenue > 0 ? avgProfit / avgRevenue : 0;
+
+  setKPI('kpi-revenue',  '¥' + fmt(avgRevenue),  '');
+  setKPI('kpi-cost',     '¥' + fmt(avgCost),     '');
+  const pv = avgProfit >= 0 ? '¥' + fmt(avgProfit) : '-¥' + fmt(Math.abs(avgProfit));
+  setKPI('kpi-profit',   pv, '');
+  const mv = (avgMargin * 100).toFixed(1) + '%';
+  setKPI('kpi-margin',   mv, '');
+
+  // Tier table
+  const tierBody = document.getElementById('tierBody');
+  tierBody.innerHTML = TIERS.map((t, i) => {
+    const c = tierCalcs[i];
+    const profitClass = c.margin >= 0 ? 'pos' : 'neg';
+    const profitSign   = c.margin >= 0 ? '+' : '';
+    const promoTag = t.promo ? '<span style="font-size:10px;background:rgba(124,106,247,.2);color:var(--tier-purple);padding:2px 4px;border-radius:2px;margin-left:4px">促销</span>' : '';
+    return `<tr class="tier-row">
+      <td>
+        <div class="tier-name-cell">
+          <div class="tier-diamond" style="background:${t.color}"></div>
+          <span class="tier-name-text">${t.name}</span>
+          ${promoTag}
+        </div>
+      </td>
+      <td><input class="tier-input" id="tierPrice${i}" type="number" value="${t.price}" min="0" step="${t.promo ? 0.01 : 1}" oninput="recalcAll()"></td>
+      <td class="tier-info">${fmt(c.energyQuota)}</td>
+      <td class="tier-info">${fmt(c.maxTasks)} 任务</td>
+      <td class="tier-profit ${profitClass}">${profitSign}${(c.margin*100).toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+
+  // Attach price change listeners to newly created inputs
+  TIERS.forEach((t, i) => {
+    const inp = document.getElementById('tierPrice'+i);
+    if (inp) {
+      inp.removeEventListener('input', recalcAll);
+      inp.addEventListener('input', recalcAll);
+    }
+  });
+
+  // Reverse table (Exclude promo)
+  const reverseBody = document.getElementById('reverseBody');
+  reverseBody.innerHTML = TIERS.filter(t => !t.promo).map((t, index) => {
+    const i = index + 1; // offset because trial is removed
+    const c = calcReverse(t.price, energyPerTask, usageRate, tokenPrice, vpsCost, targetMargin);
+    const profitClass = c.margin >= 0 ? 'profit-pos' : 'profit-neg';
+    const profitSign  = c.margin >= 0 ? '+' : '';
+
+    let cellClass = '';
+    if (c.neededTokenPrice <= 0) cellClass = 'cell-red';
+    else if (c.neededTokenPrice >= tokenPrice) cellClass = 'cell-green';
+    else if (c.neededTokenPrice >= 1.5) cellClass = 'cell-yellow';
+    else cellClass = 'cell-red';
+
+    return `<tr>
+      <td><span class="tier-dot-sm" style="background:${t.color}"></span>${t.name}</td>
+      <td>¥${fmt(t.price)}</td>
+      <td>${fmt(c.energyQuota)}</td>
+      <td>${fmt(c.maxTasks)}</td>
+      <td>${fmt(c.actualTasks)}</td>
+      <td>${c.tokenConsume.toFixed(3)}</td>
+      <td>¥${fmt(c.targetCost)}</td>
+      <td>${c.tokenBudget<=0?'':'¥'}${fmt(c.tokenBudget)}</td>
+      <td class="${cellClass}">${c.neededTokenPrice > 0 ? '¥' + c.neededTokenPrice.toFixed(2) : '—'}</td>
+      <td class="${profitClass}">${profitSign}${(c.margin*100).toFixed(1)}%</td>
+    </tr>`;
+  }).join('');
+
+  const promoData = TIERS.find(d => d.promo);
+  if (promoData) {
+      const cPromo = calcTier(promoData.price, energyPerTask, usageRate, tokenPrice, vpsCost);
+      reverseBody.innerHTML += `<tr><td colspan="10" style="text-align:left; font-size:11px; color:var(--text-muted); border:none; padding-top:4px;">* 体验版（¥${promoData.price}）不参与加权计算，当前利润率为 ${isFinite(cPromo.margin) ? (cPromo.margin*100).toFixed(1)+'%' : '—'}</td></tr>`;
+  }
+
+
+  // Conclusion
+  buildConclusion(tierCalcs, tokenPrice, vpsCost, targetMargin, energyPerTask, usageRate);
+
+  // Chart
+  updateChart(tokenPrice, vpsCost, energyPerTask, usageRate);
+}
+
+function setKPI(id, value) {
+  const el = document.getElementById(id);
+  el.textContent = value;
+  el.className = 'kpi-value';
+  if (id === 'kpi-profit' || id === 'kpi-margin') {
+    if (value.startsWith('-') || value.startsWith('-')) el.classList.add('negative');
+    else if (!value.startsWith('¥0') && !value.startsWith('0%')) el.classList.add('positive');
+  }
+}
+
+function fmt(n) {
+  if (n >= 10000) return (n / 10000).toFixed(1) + '万';
+  if (n === Math.floor(n)) return n.toLocaleString();
+  return n.toFixed(1);
+}
+
+// ─────────────────────────────────────────
+// CONCLUSION
+// ─────────────────────────────────────────
+function buildConclusion(tierCalcs, tokenPrice, vpsCost, targetMargin, energyPerTask, usageRate) {
+  const industryPrice = 1.5;
+  const basicTier = TIERS[1]; // 基础版
+  
+  const c = calcReverse(basicTier.price, energyPerTask, usageRate, tokenPrice, vpsCost, targetMargin);
+  const diffPct = tokenPrice > 0 ? ((tokenPrice - c.neededTokenPrice) / tokenPrice * 100) : 0;
+  
+  const industryActualCost = (c.actualTasks * (331288 / 1e6) * industryPrice) + vpsCost;
+  const industryProfit = basicTier.price - industryActualCost;
+  const industryMargin = basicTier.price > 0 ? industryProfit / basicTier.price : 0;
+
+  let html = `以主推的【${basicTier.name} ¥${basicTier.price}】为例，用户月均执行 <strong>${c.actualTasks.toFixed(1)}</strong> 次任务：<br>`;
+  
+  if (c.tokenBudget <= 0) {
+      html += `1. <span class="danger">🚨 严重警告：</span>VPS成本(¥${vpsCost})已击穿目标总成本(¥${c.targetCost.toFixed(2)})，模型完全不可行，必须提高定价或大幅降低VPS成本。<br>`;
+  } else if (c.neededTokenPrice >= tokenPrice) {
+      html += `1. <span class="ok">✅ 研发KPI：</span>当前Token单价 ¥${tokenPrice} 已满足盈利要求，Token预算充足（最高可接受 ¥${c.neededTokenPrice.toFixed(2)}/百万）。<br>`;
+  } else {
+      html += `1. <strong>研发KPI：</strong>Token成本必须从当前 ¥${tokenPrice}/百万 压缩至 <span class="warn">¥${c.neededTokenPrice.toFixed(2)}/百万</span>（降幅 <strong>${diffPct.toFixed(1)}%</strong>）。<br>`;
+  }
+  
+  html += `2. <strong>行业均价参考：</strong>若采购价达到 ¥1.50/百万（行业均价），该档位利润率为 <strong>${(industryMargin*100).toFixed(1)}%</strong>。<br>
+  3. <strong>运营底线：</strong>若技术降本不达标，可通过提高"能量/任务"系数（当前 ${energyPerTask}）或限制高算力功能来控制实际消耗。`;
+
+  document.getElementById('conclusion').innerHTML = html;
+}
+
+// ─────────────────────────────────────────
+// CHART
+// ─────────────────────────────────────────
+function buildChartData(tokenPrice, vpsCost, energyPerTask, usageRate) {
+  // Tianxi tiers for chart (excl promo)
+  const tierPoints = TIERS.filter(t=>!t.promo).map((t, i) => {
+    const c = calcTier(t.price, energyPerTask, usageRate, tokenPrice, vpsCost);
+    return { x: t.price, y: c.maxTasks, label: t.name, color: t.color, isTier: true };
+  });
+
+  // Competitors
+  const compPoints = competitors
+    .filter(c => c.visible && c.price > 0)
+    .map(c => ({ x: c.price, y: c.tasks, label: (c.brand || '') + ' ' + c.name, color: c.color, isTier: false }));
+
+  return { tierPoints, compPoints };
+}
+
+function updateChart(tokenPrice, vpsCost, energyPerTask, usageRate) {
+  const { tierPoints, compPoints } = buildChartData(tokenPrice, vpsCost, energyPerTask, usageRate);
+
+  const datasets = [];
+
+  // Competitors
+  const compByColor = {};
+  compPoints.forEach(p => {
+    if (!compByColor[p.color]) compByColor[p.color] = [];
+    compByColor[p.color].push(p);
+  });
+  Object.entries(compByColor).forEach(([color, pts]) => {
+    datasets.push({
+      label: pts[0].label.split(' ')[0],
+      data: pts.map(p => ({ x: p.x, y: p.y })),
+      backgroundColor: color + 'cc',
+      borderColor: color,
+      pointRadius: 6,
+      pointHoverRadius: 9,
+    });
+  });
+
+  // Tianxi tiers (diamonds)
+  datasets.push({
+    label: '天禧',
+    data: tierPoints.map(p => ({ x: p.x, y: p.y })),
+    backgroundColor: tierPoints.map(p => p.color + 'dd'),
+    borderColor: tierPoints.map(p => p.color),
+    pointStyle: 'rectRot',
+    pointRotation: 45,
+    pointRadius: 10,
+    pointHoverRadius: 13,
+    borderWidth: 1,
+  });
+
+  if (chart) {
+    chart.data.datasets = datasets;
+    chart.update('none');
+    return;
+  }
+
+  const ctx = document.getElementById('scatterChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top',
+          labels: { color: '#8899bb', font: { family: "'Noto Sans SC', sans-serif", size: 11 }, boxWidth: 10, padding: 8 }
+        },
+        tooltip: {
+          backgroundColor: '#1a2235',
+          borderColor: '#2d4471',
+          borderWidth: 1,
+          titleColor: '#e8edf5',
+          bodyColor: '#8899bb',
+          titleFont: { family: "'Noto Sans SC', sans-serif", size: 12 },
+          bodyFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.data[ctx.dataIndex].label || ctx.dataset.label}: ¥${ctx.parsed.x} / ${ctx.parsed.y.toLocaleString()} 任务`
+          }
+        }
+      },
+      scales: {
+        x: {
+          title: { display: true, text: '月价格（¥）', color: '#4a5a7a', font: { size: 11 } },
+          grid: { color: 'rgba(30, 45, 74, 0.5)' },
+          ticks: { color: '#4a5a7a', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+          min: 0,
+        },
+        y: {
+          title: { display: true, text: '月任务数（理论最大值）', color: '#4a5a7a', font: { size: 11 } },
+          grid: { color: 'rgba(30, 45, 74, 0.5)' },
+          ticks: { color: '#4a5a7a', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+          min: 0,
+        }
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────
+// COMPETITORS
+// ─────────────────────────────────────────
+function renderCompetitors() {
+  const tbody = document.getElementById('compBody');
+  tbody.innerHTML = competitors.map((c, i) => `
+    <tr>
+      <td style="text-align:center"><input type="checkbox" ${c.visible ? 'checked' : ''} onchange="updateComp(${i}, 'visible', this.checked)"></td>
+      <td><span class="comp-dot" style="background:${c.color}"></span><input type="text" value="${c.brand || ''}" onchange="updateComp(${i}, 'brand', this.value)" style="width:80px" class="comp-input-text"></td>
+      <td><input type="text" value="${c.name}" onchange="updateComp(${i}, 'name', this.value)" style="width:90px" class="comp-input-text"></td>
+      <td><input type="number" value="${c.price}" min="0" step="0.01" onchange="updateComp(${i}, 'price', this.value)" style="width:60px" class="comp-input-number"></td>
+      <td><input type="number" value="${c.tasks}" min="0" step="1" onchange="updateComp(${i}, 'tasks', this.value)" style="width:60px" class="comp-input-number"></td>
+      <td><button class="btn-del" onclick="delCompetitor(${i})">✕</button></td>
+    </tr>`).join('');
+  document.getElementById('addRemain').textContent = 20 - competitors.length;
+}
+
+function updateComp(idx, field, val) {
+  competitors[idx][field] = (field === 'price' || field === 'tasks') ? parseFloat(val) || 0 : val;
+  recalcAll();
+}
+
+function delCompetitor(idx) {
+  competitors.splice(idx, 1);
+  renderCompetitors();
+  recalcAll();
+}
+
+function addCompetitor() {
+  if (competitors.length >= 20) return;
+  const colors = ['#ff6b9d','#00cec9','#74b9ff','#fd7272','#a29bfe','#fdcb6e'];
+  const usedColors = new Set(competitors.map(c => c.color));
+  const color = colors.find(cl => !usedColors.has(cl)) || colors[0];
+  competitors.push({ visible: true, brand: '新竞品', name: '套餐', price: 99, tasks: 100, color });
+  renderCompetitors();
+  recalcAll();
+}
+
+// ─────────────────────────────────────────
+// EXPORT
+// ─────────────────────────────────────────
+function exportJSON() {
+  const data = {
+    tiers: TIERS.map((t, i) => ({ name: t.name, price: t.price, color: t.color })),
+    ratios: [1,2,3].map(i => parseFloat(document.getElementById('ratio'+i).value)),
+    energyPerTask: parseFloat(document.getElementById('energyPerTask').value),
+    usageRate: parseFloat(document.getElementById('usageRate').value),
+    tokenPrice: parseFloat(document.getElementById('tokenPrice').value),
+    vpsCost: parseFloat(document.getElementById('vpsCost').value),
+    targetMargin: parseFloat(document.getElementById('targetMargin').value),
+    competitors: competitors,
+    timestamp: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'tianxi-pricing-v8.1.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─────────────────────────────────────────
+// BOOT
+// ─────────────────────────────────────────
+renderCompetitors();
+recalcAll();
+</script>
+</body>
+</html>
+

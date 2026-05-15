@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天禧Claw · 收益模拟器 V3</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+:root {
+  --bg:#0a0e1a; --bg2:#0f1525; --bg3:#161d30; --border:#1e2a42;
+  --teal:#00d4aa; --teal-dim:rgba(0,212,170,.15); --teal-glow:rgba(0,212,170,.3);
+  --red:#ff6b6b; --red-dim:rgba(255,107,107,.15);
+  --yellow:#ffd166; --text:#e8edf5; --text-dim:#6b7a99; --text-mid:#9aa5be;
+  --trial:#7c6af7; --basic:#00d4aa; --expert:#ffd166; --master:#ff9f43;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans SC',sans-serif;font-size:14px;min-height:100vh}
+header{padding:20px 36px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,#0a0e1a,#0d1628 50%,#0a1220);position:relative;overflow:hidden}
+header::before{content:'';position:absolute;top:-60px;right:-60px;width:300px;height:300px;background:radial-gradient(circle,rgba(0,212,170,.06),transparent 70%)}
+.header-inner{display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-mark{width:34px;height:34px;background:var(--teal);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)}
+.logo-text{font-size:18px;font-weight:700}
+.logo-text span{color:var(--teal)}
+.header-sub{color:var(--text-dim);font-size:11px;margin-top:2px;letter-spacing:.05em}
+
+.main{padding:24px 36px;display:grid;gap:20px}
+
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.kpi{background:var(--bg2);border:1px solid var(--border);padding:18px 20px;position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--teal);transform:scaleX(0);transition:transform .3s}
+.kpi:hover::after{transform:scaleX(1)}
+.kpi-label{font-size:10px;color:var(--text-dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.kpi-val{font-family:'DM Mono',monospace;font-size:26px;font-weight:500;line-height:1;transition:color .3s}
+.kpi-val.pos{color:var(--teal);text-shadow:0 0 20px var(--teal-glow)}
+.kpi-val.neg{color:var(--red);text-shadow:0 0 20px rgba(255,107,107,.3)}
+.kpi-val.neut{color:var(--text)}
+.kpi-sub{font-size:10px;color:var(--text-dim);margin-top:5px}
+
+/* Panels */
+.panel{background:var(--bg2);border:1px solid var(--border);padding:20px;display:flex;flex-direction:column}
+.panel>.cwrap,.panel>.cwrap-sm{flex:1;min-height:0}
+.ptitle{font-size:10px;letter-spacing:.12em;color:var(--text-dim);text-transform:uppercase;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.row2{display:grid;grid-template-columns:420px 1fr;gap:20px}
+.row3{display:grid;grid-template-columns:1fr 400px;gap:20px}
+.row4{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+
+/* Alert */
+.alert{background:var(--red-dim);border:1px solid rgba(255,107,107,.3);padding:12px 18px;border-radius:4px;margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:13px}
+.alert-ok{background:var(--teal-dim);border:1px solid rgba(0,212,170,.3)}
+.alert-icon{font-size:18px}
+
+/* User config */
+.total-users{margin-bottom:18px}
+.total-users label{font-size:11px;color:var(--text-mid);display:block;margin-bottom:6px}
+.total-users input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:17px;padding:8px 12px;outline:none;transition:border-color .2s}
+.total-users input:focus{border-color:var(--teal)}
+
+.tier-sliders{display:flex;flex-direction:column;gap:14px;margin-bottom:18px}
+.tier-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.tier-pct{font-family:'DM Mono',monospace;font-size:12px;color:var(--teal)}
+.tier-count{font-size:10px;color:var(--text-dim);margin-top:2px}
+
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;border-radius:0;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:0;cursor:pointer;transition:transform .15s}
+input[type=range]:hover::-webkit-slider-thumb{transform:scale(1.3)}
+
+.tier-dot{display:inline-block;width:7px;height:7px;margin-right:5px;vertical-align:middle}
+
+/* Price inputs */
+.pricing-sec{border-top:1px solid var(--border);padding-top:14px}
+.pricing-grid{display:grid;grid-template-columns:1fr 80px 60px 60px 80px;gap:6px;align-items:center}
+.pg-hdr{font-size:9px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;padding:0 4px 4px;text-align:center}
+.pg-hdr:first-child{text-align:left}
+.pg-name{font-size:11px;display:flex;align-items:center}
+.pg-input{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;padding:5px 6px;outline:none;text-align:center}
+.pg-input:focus{border-color:var(--teal)}
+.pg-cost{font-family:'DM Mono',monospace;font-size:11px;color:var(--red);text-align:center;padding:5px 6px}
+.pg-profit{font-family:'DM Mono',monospace;font-size:11px;text-align:center;padding:5px 6px}
+.pg-profit.pos{color:var(--teal)}
+.pg-profit.neg{color:var(--red)}
+
+/* Chart */
+.cwrap{position:relative;min-height:350px;flex:1}
+.cwrap-sm{position:relative;height:180px}
+
+/* Table */
+table{width:100%;border-collapse:collapse}
+thead th{font-size:9px;letter-spacing:.1em;color:var(--text-dim);text-transform:uppercase;padding:0 10px 8px;text-align:right;border-bottom:1px solid var(--border)}
+thead th:first-child{text-align:left}
+tbody td{padding:9px 10px;font-family:'DM Mono',monospace;font-size:12px;text-align:right;border-bottom:1px solid rgba(30,42,66,.5)}
+tbody td:first-child{font-family:'Noto Sans SC',sans-serif;text-align:left;font-size:12px}
+.tr-pos{color:var(--teal)}.tr-neg{color:var(--red)}
+
+/* Breakeven */
+.be-num{font-family:'DM Mono',monospace;font-size:38px;font-weight:500;color:var(--teal);line-height:1}
+.be-num.danger{color:var(--red)}
+.be-desc{font-size:11px;color:var(--text-mid);line-height:1.6;margin-top:6px}
+.be-row{display:grid;grid-template-columns:1fr 150px;gap:14px;align-items:start;margin-bottom:14px}
+.ins-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ins-lbl{font-size:9px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
+.ins-val{font-family:'DM Mono',monospace;font-size:13px;color:var(--text)}
+
+/* Cost comparison */
+.cmp-card{background:var(--bg3);border:1px solid var(--border);padding:16px;margin-bottom:12px}
+.cmp-title{font-size:12px;font-weight:500;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.cmp-row{display:flex;justify-content:space-between;padding:4px 0;font-size:12px}
+.cmp-lbl{color:var(--text-mid)}
+.cmp-val{font-family:'DM Mono',monospace;font-size:12px}
+.cmp-bar{height:6px;border-radius:3px;margin:4px 0 8px}
+
+/* Reduction */
+.red-row{margin-bottom:20px}
+.red-hdr{display:flex;justify-content:space-between;margin-bottom:6px}
+.red-lbl{font-size:12px;color:var(--text-mid)}
+.red-val{font-family:'DM Mono',monospace;font-size:12px;color:var(--teal)}
+.red-sub{font-size:10px;color:var(--text-dim);margin-top:2px}
+.savings{background:var(--bg3);border:1px solid var(--border);padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.sav-lbl{font-size:9px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
+.sav-val{font-family:'DM Mono',monospace;font-size:15px;color:var(--teal)}
+
+/* Scenario buttons */
+.scenarios{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.sc-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text-mid);padding:6px 12px;font-size:11px;cursor:pointer;font-family:'Noto Sans SC',sans-serif;transition:all .2s;border-radius:3px}
+.sc-btn:hover{border-color:var(--teal);color:var(--teal)}
+.sc-btn.active{background:var(--teal);color:#0a0e1a;border-color:var(--teal)}
+
+/* Status */
+.bar{padding:8px 36px;border-top:1px solid var(--border);display:flex;gap:20px;font-size:10px;color:var(--text-dim);background:var(--bg2)}
+.sdot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--teal);margin-right:5px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes flash{0%{opacity:.4}100%{opacity:1}}
+.flash{animation:flash .3s ease-out}
+
+/* Presets row */
+.presets-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-mark"></div>
+      <div>
+        <div class="logo-text">天禧<span>Claw</span> · 收益模拟器 <span style="font-size:12px;color:var(--text-dim);font-weight:400">V3</span></div>
+        <div class="header-sub">烧钱换用户阶段 → 降本路径 → 盈亏拐点</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- KPI -->
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">月总收入</div><div class="kpi-val neut" id="kpi-rev">¥0</div><div class="kpi-sub" id="kpi-rev-sub">—</div></div>
+    <div class="kpi"><div class="kpi-label">月总成本</div><div class="kpi-val neut" id="kpi-cost">¥0</div><div class="kpi-sub" id="kpi-cost-sub">—</div></div>
+    <div class="kpi"><div class="kpi-label">月净利润</div><div class="kpi-val neut" id="kpi-profit">¥0</div><div class="kpi-sub" id="kpi-profit-sub">—</div></div>
+    <div class="kpi"><div class="kpi-label">综合利润率</div><div class="kpi-val neut" id="kpi-margin">0%</div><div class="kpi-sub" id="kpi-margin-sub">—</div></div>
+  </div>
+
+  <!-- ROW 2: User config + Revenue vs Cost chart -->
+  <div class="row2">
+    <div class="panel">
+      <div class="ptitle">用户分布 & 定价</div>
+      <div class="total-users">
+        <label>总用户数</label>
+        <input type="number" id="total-users" value="10000" min="100" max="10000000" step="100" oninput="recalc()">
+      </div>
+      <div class="tier-sliders">
+        <div class="tier-item" id="ti-trial">
+          <div class="tier-hdr"><span class="tier-name"><span class="tier-dot" style="background:var(--trial)"></span>体验版</span><span class="tier-pct" id="pct-trial">30%</span></div>
+          <input type="range" id="range-trial" min="0" max="100" value="30" style="background:linear-gradient(to right,var(--trial) 30%,#1e2a42 30%)" oninput="onSlider('trial')">
+          <div class="tier-count" id="count-trial">3,000 用户 · ¥0.99/月 · 10任务</div>
+        </div>
+        <div class="tier-item" id="ti-basic">
+          <div class="tier-hdr"><span class="tier-name"><span class="tier-dot" style="background:var(--basic)"></span>基础版</span><span class="tier-pct" id="pct-basic">50%</span></div>
+          <input type="range" id="range-basic" min="0" max="100" value="50" style="background:linear-gradient(to right,var(--basic) 50%,#1e2a42 50%)" oninput="onSlider('basic')">
+          <div class="tier-count" id="count-basic">5,000 用户 · ¥29/月 · 40任务</div>
+        </div>
+        <div class="tier-item" id="ti-expert">
+          <div class="tier-hdr"><span class="tier-name"><span class="tier-dot" style="background:var(--expert)"></span>专家版</span><span class="tier-pct" id="pct-expert">15%</span></div>
+          <input type="range" id="range-expert" min="0" max="100" value="15" style="background:linear-gradient(to right,var(--expert) 15%,#1e2a42 15%)" oninput="onSlider('expert')">
+          <div class="tier-count" id="count-expert">1,500 用户 · ¥49/月 · 80任务</div>
+        </div>
+        <div class="tier-item" id="ti-master">
+          <div class="tier-hdr"><span class="tier-name"><span class="tier-dot" style="background:var(--master)"></span>大师版</span><span class="tier-pct" id="pct-master">5%</span></div>
+          <input type="range" id="range-master" min="0" max="100" value="5" style="background:linear-gradient(to right,var(--master) 5%,#1e2a42 5%)" oninput="onSlider('master')">
+          <div class="tier-count" id="count-master">500 用户 · ¥99/月 · 200任务</div>
+        </div>
+      </div>
+      <!-- Pricing -->
+      <div class="pricing-sec">
+        <div class="ptitle" style="margin-bottom:10px">定价配置（可编辑）</div>
+        <div class="pricing-grid">
+          <div class="pg-hdr">档位</div>
+          <div class="pg-hdr">月价(元)</div>
+          <div class="pg-hdr">任务数</div>
+          <div class="pg-hdr">使用率</div>
+          <div class="pg-hdr">成本/人</div>
+          <div class="pg-name"><span class="tier-dot" style="background:var(--trial)"></span>体验版</div>
+          <input class="pg-input" id="price-trial" type="number" value="0.99" min="0" step="0.01" oninput="recalc()">
+          <div class="pg-hdr" style="color:var(--text-dim)">10</div>
+          <input class="pg-input" id="usage-trial" type="number" value="50" min="1" max="100" step="5" oninput="recalc()">
+          <div class="pg-cost" id="cost-trial">35.30</div>
+          <div class="pg-name"><span class="tier-dot" style="background:var(--basic)"></span>基础版</div>
+          <input class="pg-input" id="price-basic" type="number" value="29" min="0" step="1" oninput="recalc()">
+          <div class="pg-hdr" style="color:var(--text-dim)">40</div>
+          <input class="pg-input" id="usage-basic" type="number" value="50" min="1" max="100" step="5" oninput="recalc()">
+          <div class="pg-cost" id="cost-basic">67.70</div>
+          <div class="pg-name"><span class="tier-dot" style="background:var(--expert)"></span>专家版</div>
+          <input class="pg-input" id="price-expert" type="number" value="49" min="0" step="1" oninput="recalc()">
+          <div class="pg-hdr" style="color:var(--text-dim)">80</div>
+          <input class="pg-input" id="usage-expert" type="number" value="50" min="1" max="100" step="5" oninput="recalc()">
+          <div class="pg-cost" id="cost-expert">110.90</div>
+          <div class="pg-name"><span class="tier-dot" style="background:var(--master)"></span>大师版</div>
+          <input class="pg-input" id="price-master" type="number" value="99" min="0" step="1" oninput="recalc()">
+          <div class="pg-hdr" style="color:var(--text-dim)">200</div>
+          <input class="pg-input" id="usage-master" type="number" value="50" min="1" max="100" step="5" oninput="recalc()">
+          <div class="pg-cost" id="cost-master">240.50</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ptitle">收入 vs 成本（按档位）</div>
+      <div class="cwrap"><canvas id="costChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ROW 3: Detail table + Breakeven -->
+  <div class="row3">
+    <div class="panel">
+      <div class="ptitle">各档位明细</div>
+      <table>
+        <thead><tr><th>档位</th><th>用户数</th><th>月价</th><th>任务/月</th><th>使用率</th><th>成本/人</th><th>月收入</th><th>月成本</th><th>净利润</th><th>利润率</th></tr></thead>
+        <tbody id="detail-table"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <div class="ptitle">盈亏平衡分析</div>
+      <div class="be-row">
+        <div>
+          <div class="be-num" id="be-num">—</div>
+          <div class="be-desc" id="be-desc">体验版用户占比上限</div>
+        </div>
+        <div class="cwrap-sm"><canvas id="beChart"></canvas></div>
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-left:2px solid var(--teal);padding:12px 14px;margin:14px 0;font-size:11px;line-height:1.8;color:var(--text-mid);font-family:'DM Mono',monospace;">
+        <div style="font-size:10px;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;font-family:'Noto Sans SC',sans-serif">平衡点公式</div>
+        <span style="color:var(--teal)">平衡点</span> = <span style="color:var(--yellow)">C_paid</span> / (<span style="color:var(--yellow)">C_paid</span> + <span style="color:var(--yellow)">C_trial</span>)<br>
+        <span style="color:var(--yellow)">C_paid</span> = Σ 档位权重 × (售价 − 成本) &nbsp;<span style="color:var(--text-dim);font-size:10px">← 付费用户加权净贡献</span><br>
+        <span style="color:var(--yellow)">C_trial</span> = <span id="formula-trial-cost">—</span> &nbsp;<span style="color:var(--text-dim);font-size:10px">← 体验版单用户成本</span><br>
+        <div style="margin-top:8px;font-family:'Noto Sans SC',sans-serif;font-size:10px;color:var(--text-dim);">
+          影响平衡点的变量：售价↑ → 平衡点↑ &nbsp;|&nbsp; 成本↑ → 平衡点↓ &nbsp;|&nbsp; 高价档占比↑ → 平衡点↑ &nbsp;|&nbsp; 体验版成本↑ → 平衡点↓
+        </div>
+      </div>
+      <div class="ins-grid">
+        <div><div class="ins-lbl">付费用户加权净贡献</div><div class="ins-val" id="ins-cpaid">—</div></div>
+        <div><div class="ins-lbl">每付费用户平均收入</div><div class="ins-val" id="ins-arpu">—</div></div>
+        <div><div class="ins-lbl">当前付费用户占比</div><div class="ins-val" id="ins-paid">—</div></div>
+        <div><div class="ins-lbl">Token 总消耗/月</div><div class="ins-val" id="ins-tokens">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 4: Competitor + Cost reduction -->
+  <div class="row4">
+    <div class="panel">
+      <div class="ptitle">盈亏平衡推荐</div>
+      <div class="cmp-card">
+        <div class="cmp-title"><span class="tier-dot" style="background:var(--trial)"></span>目标：达到盈亏平衡</div>
+        <div class="cmp-row"><span class="cmp-lbl">Token 成本需降至</span><span class="cmp-val" style="color:var(--teal)" id="cmp-be-token">—</span></div>
+        <div class="cmp-bar" id="cmp-be-bar" style="background:rgba(30,42,66,.3)"></div>
+        <div class="cmp-row"><span class="cmp-lbl">VM 成本需降至</span><span class="cmp-val" style="color:var(--teal)" id="cmp-be-vm">—</span></div>
+        <div class="cmp-bar" id="cmp-be-vm-bar" style="background:rgba(30,42,66,.3)"></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ptitle">降本模拟</div>
+      <div class="red-row">
+        <div class="red-hdr"><span class="red-lbl">Token 单价</span><span class="red-val" id="token-val">¥1.08/任务</span></div>
+        <input type="range" id="range-token" min="1" max="100" value="100" oninput="onReduction()" style="background:linear-gradient(to right,var(--trial) 100%,#1e2a42 100%)">
+        <div class="red-sub" id="token-sub">基准 1.00×</div>
+      </div>
+      <div class="red-row">
+        <div class="red-hdr"><span class="red-lbl">VM 成本</span><span class="red-val" id="vm-val">¥24.50/月</span></div>
+        <input type="range" id="range-vm" min="1" max="100" value="100" oninput="onReduction()" style="background:linear-gradient(to right,var(--yellow) 100%,#1e2a42 100%)">
+        <div class="red-sub" id="vm-sub">基准 1.00×</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="bar">
+  <span><span class="sdot"></span>实时计算</span>
+  <span id="st-token">Token: ¥1.08/任务</span>
+  <span id="st-vm">VM: ¥24.50/月</span>
+  <span id="st-users">用户: 10,000</span>
+  <span id="st-time"></span>
+</div>
+
+<script>
+const TIERS={
+  trial:{name:'体验版',tasks:10,price:0.99,color:'#7c6af7'},
+  basic:{name:'基础版',tasks:40,price:29,color:'#00d4aa'},
+  expert:{name:'专家版',tasks:80,price:49,color:'#ffd166'},
+  master:{name:'大师版',tasks:200,price:99,color:'#ff9f43'}
+};
+const KEYS=['trial','basic','expert','master'];
+const TOKENS_PER_TASK=331288;
+const BASE_PRICE_PER_M=3.26;
+const BASE_TOKEN=TOKENS_PER_TASK/1e6*BASE_PRICE_PER_M;
+const BASE_VM=24.50;
+const COMP_PRICE_LOW=0.58/TOKENS_PER_TASK*1e6;
+const COMP_PRICE_HIGH=1.83/TOKENS_PER_TASK*1e6;
+
+let pcts={trial:30,basic:50,expert:15,master:5};
+let tokenMult=1.0;
+let vmMult=1.0;
+
+// Charts
+const costChart=new Chart(document.getElementById('costChart').getContext('2d'),{
+  type:'bar',
+  data:{labels:['体验版','基础版','专家版','大师版'],datasets:[
+    {label:'收入',data:[0,0,0,0],backgroundColor:'rgba(255,159,67,.4)',borderColor:'rgba(255,159,67,.8)',borderWidth:1},
+    {label:'Token成本',data:[0,0,0,0],backgroundColor:'rgba(124,106,247,.85)',borderWidth:0,stack:'cost'},
+    {label:'VM成本',data:[0,0,0,0],backgroundColor:'rgba(255,209,102,.6)',borderWidth:0,stack:'cost'}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#9aa5be',font:{family:'DM Mono',size:11},boxWidth:10}},
+      tooltip:{backgroundColor:'#161d30',borderColor:'#1e2a42',borderWidth:1,titleColor:'#e8edf5',bodyColor:'#9aa5be',
+        callbacks:{label:c=>' '+c.dataset.label+'：¥'+c.raw.toFixed(0)}}},
+    scales:{x:{grid:{color:'rgba(30,42,66,.3)'},ticks:{color:'#9aa5be',font:{family:'Noto Sans SC',size:12}}},
+      y:{grid:{color:'rgba(30,42,66,.5)'},ticks:{color:'#6b7a99',font:{family:'DM Mono',size:11},callback:v=>'¥'+fmtK(v)}}}
+  }
+});
+
+const beChart=new Chart(document.getElementById('beChart').getContext('2d'),{
+  type:'doughnut',
+  data:{labels:['体验版','付费用户'],datasets:[{data:[30,70],backgroundColor:['rgba(255,107,107,.7)','rgba(0,212,170,.7)'],borderWidth:0}]},
+  options:{responsive:true,maintainAspectRatio:false,cutout:'65%',
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#161d30',borderColor:'#1e2a42',borderWidth:1,titleColor:'#e8edf5',bodyColor:'#9aa5be',
+      callbacks:{label:c=>' '+c.label+': '+c.raw+'%'}}}},
+  plugins:[{id:'ct',afterDraw(ch){const{ctx,chartArea:{top,bottom,left,right}}=ch;const cx=(left+right)/2,cy=(top+bottom)/2;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 12px DM Mono';ctx.fillStyle='#9aa5be';ctx.fillText(ch._lbl||'',cx,cy);ctx.restore()}}]
+});
+
+function fmt(n){return Math.round(n).toLocaleString('zh-CN')}
+function fmtK(n){if(Math.abs(n)>=1e4)return(n/1e4).toFixed(1)+'万';return fmt(n)}
+function fmtD(n){return n.toFixed(2)}
+
+function getPricePerM(){return BASE_PRICE_PER_M*tokenMult}
+function getTokenCostPerTask(){return TOKENS_PER_TASK/1e6*getPricePerM()}
+function calcCost(k){
+  return TIERS[k].tasks*getTokenCostPerTask()+BASE_VM*vmMult;
+}
+
+function onSlider(key){
+  const v=parseInt(document.getElementById('range-'+key).value);
+  pcts[key]=v;
+  const others=KEYS.filter(k=>k!==key);
+  const oSum=others.reduce((s,k)=>s+pcts[k],0);
+  const rem=100-v;
+  if(oSum>0){
+    let d=0;
+    others.forEach((k,i)=>{
+      if(i===others.length-1){pcts[k]=Math.max(0,rem-d)}
+      else{const s=Math.round((pcts[k]/oSum)*rem);pcts[k]=Math.max(0,s);d+=pcts[k]}
+    });
+  }else{
+    const e=Math.floor(rem/3);
+    others.forEach((k,i)=>{pcts[k]=i===2?(rem-e*2):e});
+  }
+  let t=KEYS.reduce((s,k)=>s+pcts[k],0);
+  if(t!==100){pcts[key]+=100-t;pcts[key]=Math.max(0,pcts[key])}
+  updateSliders();recalc();
+}
+
+function updateSliders(){
+  KEYS.forEach(k=>{
+    const r=document.getElementById('range-'+k);
+    r.value=pcts[k];
+    r.style.background='linear-gradient(to right,'+TIERS[k].color+' '+pcts[k]+'%,#1e2a42 '+pcts[k]+'%)';
+    document.getElementById('pct-'+k).textContent=pcts[k]+'%';
+  });
+}
+
+function onReduction(){
+  const tPct=parseInt(document.getElementById('range-token').value);
+  tokenMult=tPct/100;
+  vmMult=parseInt(document.getElementById('range-vm').value)/100;
+  const vmPct=parseInt(document.getElementById('range-vm').value);
+  const ppm=getPricePerM();
+  const tcpt=getTokenCostPerTask();
+  document.getElementById('token-val').textContent='¥'+ppm.toFixed(2)+'/百万token (任务¥'+tcpt.toFixed(2)+')';
+  document.getElementById('token-sub').textContent='基准 ¥'+BASE_PRICE_PER_M+'/M, 系数 '+tokenMult.toFixed(2)+'×';
+  document.getElementById('vm-val').textContent='¥'+(BASE_VM*vmMult).toFixed(2)+'/月';
+  document.getElementById('vm-sub').textContent='系数 '+vmMult.toFixed(2)+'×';
+  // update range bar visuals
+  document.getElementById('range-token').style.background='linear-gradient(to right,var(--trial) '+tPct+'%,#1e2a42 '+tPct+'%)';
+  document.getElementById('range-vm').style.background='linear-gradient(to right,var(--yellow) '+vmPct+'%,#1e2a42 '+vmPct+'%)';
+  recalc();
+}
+
+function calcBreakevenToken(){
+  const tU=parseInt(document.getElementById('total-users').value)||10000;
+  const prices2={};
+  const usageRates2={};
+  KEYS.forEach(k=>{prices2[k]=parseFloat(document.getElementById('price-'+k).value)||TIERS[k].price;usageRates2[k]=(parseFloat(document.getElementById('usage-'+k).value)||100)/100});
+  let lo=0,hi=BASE_PRICE_PER_M*3;
+  for(let i=0;i<100;i++){
+    const mid=(lo+hi)/2;
+    let totalP=0;
+    KEYS.forEach(k=>{
+      const n=Math.round(tU*pcts[k]/100);
+      const tc=TOKENS_PER_TASK/1e6*mid*usageRates2[k];
+      const cost=TIERS[k].tasks*tc+BASE_VM*vmMult;
+      totalP+=n*(prices2[k]-cost);
+    });
+    if(totalP>0)lo=mid;else hi=mid;
+  }
+  return lo;
+}
+
+function calcBreakevenVM_raw(){
+  const tU=parseInt(document.getElementById('total-users').value)||10000;
+  const prices2={};
+  const usageRates2={};
+  KEYS.forEach(k=>{prices2[k]=parseFloat(document.getElementById('price-'+k).value)||TIERS[k].price;usageRates2[k]=(parseFloat(document.getElementById('usage-'+k).value)||100)/100});
+  let lo=0,hi=BASE_VM*3;
+  for(let i=0;i<100;i++){
+    const mid=(lo+hi)/2;
+    let totalP=0;
+    KEYS.forEach(k=>{
+      const n=Math.round(tU*pcts[k]/100);
+      const tc=TOKENS_PER_TASK/1e6*BASE_PRICE_PER_M*tokenMult*usageRates2[k];
+      const cost=TIERS[k].tasks*tc+mid;
+      totalP+=n*(prices2[k]-cost);
+    });
+    if(totalP>0)lo=mid;else hi=mid;
+  }
+  return lo;
+}
+
+function recalc(){
+  const tU=parseInt(document.getElementById('total-users').value)||10000;
+  // Read prices from inputs
+  const prices={};
+  const usageRates={};
+  KEYS.forEach(k=>{
+    prices[k]=parseFloat(document.getElementById('price-'+k).value)||TIERS[k].price;
+    usageRates[k]=(parseFloat(document.getElementById('usage-'+k).value)||100)/100;
+  });
+  let totalRev=0,totalCost=0,totalTokenCost=0,totalVMCost=0;
+  let totalTasks=0;
+  const rows=[];
+  const dRev=[],dTok=[],dVm=[];
+
+  KEYS.forEach(k=>{
+    const n=Math.round(tU*pcts[k]/100);
+    const tc=TIERS[k].tasks*getTokenCostPerTask()*usageRates[k];
+    const vc=BASE_VM*vmMult;
+    const cost=tc+vc;
+    const price=prices[k];
+    const rev=n*price;
+    const totalC=n*cost;
+    const profit=rev-totalC;
+    const margin=rev>0?profit/rev*100:null;
+    totalRev+=rev;totalCost+=totalC;totalTokenCost+=n*tc;totalVMCost+=n*vc;
+    totalTasks+=n*TIERS[k].tasks;
+    rows.push({key:k,name:TIERS[k].name,n,tasks:TIERS[k].tasks,price,usage:usageRates[k],tc,vc,cost,rev,totalC,profit,margin,color:TIERS[k].color});
+    dRev.push(rev);dTok.push(n*tc);dVm.push(n*vc);
+    document.getElementById('count-'+k).textContent=fmt(n)+' 用户 · ¥'+price+'/月 · '+TIERS[k].tasks+'任务';
+    // pricing panel cost
+    document.getElementById('cost-'+k).textContent=fmtD(cost);
+    const cel=document.getElementById('cost-'+k);
+    cel.style.color=price>=cost?'var(--teal)':'var(--red)';
+  });
+
+  const profit=totalRev-totalCost;
+  const margin=totalRev>0?profit/totalRev*100:null;
+
+  // KPI
+  setKPI('kpi-rev','¥'+fmtK(totalRev),'neut','月度总收入');
+  setKPI('kpi-cost','¥'+fmtK(totalCost),'neut','月度总成本');
+  setKPI('kpi-profit',(profit>=0?'¥':'-¥')+fmtK(Math.abs(profit)),profit>=0?'pos':'neg',profit>=0?'盈利状态':'亏损状态');
+  setKPI('kpi-margin',margin!==null?margin.toFixed(1)+'%':'—',margin!==null&&margin>=0?'pos':'neg',margin!==null?'收入覆盖成本比':'无收入');
+
+  // Cost chart
+  costChart.data.datasets[0].data=dRev;
+  costChart.data.datasets[1].data=dTok;
+  costChart.data.datasets[2].data=dVm;
+  costChart.update('none');
+
+  // Detail table
+  let html='';
+  rows.forEach(r=>{
+    const cls=r.profit>=0?'tr-pos':'tr-neg';
+    html+='<tr><td><span class="tier-dot" style="background:'+r.color+'"></span>'+r.name+'</td><td>'+fmt(r.n)+'</td><td>¥'+r.price+'</td><td>'+r.tasks+'</td><td>'+(r.usage*100).toFixed(0)+'%</td><td>¥'+fmtD(r.cost)+'</td><td>¥'+fmt(r.rev)+'</td><td>¥'+fmt(r.totalC)+'</td><td class="'+cls+'">'+(r.profit>=0?'¥':'-¥')+fmt(Math.abs(r.profit))+'</td><td class="'+cls+'">'+(r.margin!==null?r.margin.toFixed(1)+'%':'—')+'</td></tr>';
+  });
+  const tcls=profit>=0?'tr-pos':'tr-neg';
+  html+='<tr style="border-top:1px solid var(--border);font-weight:500"><td>合计</td><td>'+fmt(tU)+'</td><td>—</td><td>—</td><td>—</td><td>—</td><td>¥'+fmt(totalRev)+'</td><td>¥'+fmt(totalCost)+'</td><td class="'+tcls+'">'+(profit>=0?'¥':'-¥')+fmt(Math.abs(profit))+'</td><td class="'+tcls+'">'+(margin!==null?margin.toFixed(1)+'%':'—')+'</td></tr>';
+  document.getElementById('detail-table').innerHTML=html;
+
+  // Breakeven (V2 style)
+  // Also calc breakeven token price for competitor panel
+  const bePPM=calcBreakevenToken();
+  const beVM_raw=calcBreakevenVM_raw();
+  const avgUsage=(pcts.trial*usageRates.trial+pcts.basic*usageRates.basic+pcts.expert*usageRates.expert+pcts.master*usageRates.master)/100;
+  const beTaskCost=TOKENS_PER_TASK/1e6*bePPM*avgUsage;
+  // V2: trial user percentage
+  const paidKeys=['basic','expert','master'];
+  const paidSum=paidKeys.reduce((s,k)=>s+pcts[k],0);
+  let beMax=null,cPaid=0;
+  const trialCost=rows.find(r=>r.key==='trial').cost;
+  const trialProfit=prices.trial-trialCost;
+  if(paidSum>0){
+    cPaid=paidKeys.reduce((s,k)=>{
+      return s+(pcts[k]/paidSum)*(prices[k]-rows.find(r=>r.key===k).cost);
+    },0);
+    document.getElementById('formula-trial-cost').textContent=trialCost.toFixed(2);
+    if(cPaid>0 && cPaid+trialProfit>0){
+      beMax=cPaid/(cPaid+trialProfit)*100;
+    }
+  }
+  const isOver=beMax!==null&&pcts.trial>beMax;
+  const beEl=document.getElementById('be-num');
+  if(cPaid>0){
+    beEl.textContent=beMax!==null?beMax.toFixed(1)+'%':'—';
+    beEl.className='be-num'+(isOver?'danger':'');
+    document.getElementById('be-desc').textContent=beMax!==null
+      ?(isOver?'⚠️ 当前体验版占比已超过平衡点！':'体验版占比不超过此比例可保本')
+      :'无法计算';
+    beChart._lbl=beMax!==null?'平衡点\n'+beMax.toFixed(1)+'%':'';
+  }else{
+    beEl.textContent='无解';
+    beEl.className='be-num danger';
+    document.getElementById('be-desc').textContent='所有付费档亏损，无法通过调整分布实现盈亏平衡';
+    beChart._lbl='全亏\n无解';
+  }
+
+  // Doughnut chart
+  const trialPct=pcts.trial;
+  const paidPct=100-trialPct;
+  const trialColor=isOver?'rgba(255,107,107,.8)':'rgba(124,106,247,.7)';
+  beChart.data.datasets[0].data=[trialPct,paidPct];
+  beChart.data.datasets[0].backgroundColor=[trialColor,'rgba(0,212,170,.7)'];
+  beChart.update('none');
+
+  // Insights
+  const paidUsers=rows.filter(r=>r.key!=='trial').reduce((s,r)=>s+r.n,0);
+  const paidRev=rows.filter(r=>r.key!=='trial').reduce((s,r)=>s+r.rev,0);
+  document.getElementById('ins-cpaid').textContent=paidSum>0?'¥'+cPaid.toFixed(2)+'/用户':'—';
+  document.getElementById('ins-arpu').textContent=paidUsers>0?'¥'+fmtDec(paidRev/paidUsers)+'/月':'—';
+  document.getElementById('ins-paid').textContent=tU>0?((paidUsers/tU*100).toFixed(1)+'%'):'—';
+  totalTasks=tU*pcts.trial/100*TIERS.trial.tasks*usageRates.trial+tU*pcts.basic/100*TIERS.basic.tasks*usageRates.basic+tU*pcts.expert/100*TIERS.expert.tasks*usageRates.expert+tU*pcts.master/100*TIERS.master.tasks*usageRates.master;
+  const totalTokens=totalTasks*TOKENS_PER_TASK/1e6;
+  document.getElementById('ins-tokens').textContent=fmtK(totalTokens)+'万';
+
+  // 盈亏平衡推荐
+  document.getElementById('cmp-be-token').textContent='¥'+bePPM.toFixed(2)+'/M (任务¥'+beTaskCost.toFixed(2)+')';
+  document.getElementById('cmp-be-vm').textContent='¥'+beVM_raw.toFixed(2)+'/月';
+  const beTokenPct=Math.min(bePPM/COMP_PRICE_HIGH*100,100);
+  document.getElementById('cmp-be-bar').style.background='linear-gradient(to right,var(--teal) '+beTokenPct+'%,rgba(30,42,66,.3) '+beTokenPct+'%)';
+  const beVMPct=Math.min(beVM_raw/BASE_VM*100,100);
+  document.getElementById('cmp-be-vm-bar').style.background='linear-gradient(to right,var(--teal) '+beVMPct+'%,rgba(30,42,66,.3) '+beVMPct+'%)';
+
+  // Status bar
+  document.getElementById('st-token').textContent='Token: ¥'+(BASE_PRICE_PER_M*tokenMult).toFixed(2)+'/M token';
+  document.getElementById('st-vm').textContent='VM: ¥'+(BASE_VM*vmMult).toFixed(2)+'/月';
+  document.getElementById('st-users').textContent='用户: '+fmt(tU);
+}
+
+function setKPI(id,val,cls,sub){
+  const el=document.getElementById(id);
+  el.textContent=val;el.className='kpi-val '+cls;
+  el.classList.add('flash');setTimeout(()=>el.classList.remove('flash'),300);
+  const s=document.getElementById(id+'-sub');if(s)s.textContent=sub;
+}
+
+function updateTime(){document.getElementById('st-time').textContent=new Date().toLocaleTimeString('zh-CN')}
+setInterval(updateTime,1000);updateTime();
+updateSliders();recalc();
+</script>
+</body>
+</html>
