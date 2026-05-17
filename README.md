@@ -2,7 +2,17 @@
 
 个人收集和整理的 AI Agent 实用技能仓库，旨在提升多 Agent 环境下的工作效率。支持在 Gemini CLI、Claude Desktop、Cursor 等具备扩展能力的 Agent 软件中快速部署。
 
+## 技能维护规范 (Mandatory)
+为了确保多 Agent 环境下的技能一致性，所有更新必须遵循以下规则：
+1. **目录结构**：每个技能必须存放在独立的子目录下。
+2. ** README 更新**：每次新增或更新技能后，必须同步更新本根目录下的 `README.md` 列表。
+3. **格式一致性**：技能内容应遵循 Gemini CLI / Claude 的标准技能格式（含 `SKILL.md`）。
+
 ## 技能列表
+
+### 🧠 agent-memory-sync (跨 Agent 记忆同步专家)
+- **功能**：基于 Notion 的多 Agent 记忆同步系统，自动格式化并记录工作进度、决策和坑点。
+- **目录**：`agent-memory-sync/`
 
 ### 🧾 invoice-organizer-pro (差旅发票整理专家)
 - **功能**：PDF 内容识别（酒店/打车/餐饮）、自动重命名、Excel 报销单金额比对、合规性验证。
