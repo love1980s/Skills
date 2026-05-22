@@ -1,3 +1,8 @@
+---
+name: lark-cli-helper
+description: 飞书CLI工具助手：安装、配置、授权飞书CLI基础能力。当用户需要安装飞书CLI、配置App ID/Secret、完成飞书账号授权、检查飞书配置状态，或其他Skill依赖飞书CLI初始化时使用。触发词：安装飞书CLI、配置飞书、飞书授权、检查飞书配置、lark-cli初始化。
+---
+
 # Lark CLI Helper Skill
 
 飞书CLI工具助手，提供飞书CLI的安装、配置、授权等基础能力。
