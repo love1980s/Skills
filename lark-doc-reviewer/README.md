@@ -1,79 +1,88 @@
-# Lark Doc Reviewer Skill for OpenClaw
+# Lark Doc Reviewer Skill
 
-飞书文档智能评审助手，基于AI自动评审飞书文档并添加定点评论。
+飞书文档智能评审助手，用于读取飞书 Doc/Wiki、生成定点评论计划，并在用户确认后写入评论。
 
 ## 功能特性
-- 🤖 智能文档解析，支持飞书文档、知识库、表格等多种类型
-- 📋 内置多场景评审模板（PRD、技术方案、项目计划等）
-- 🎯 精准定点评论，自动定位到文档对应位置
-- 🔧 支持自定义评审规则和模板
-- 📊 评审完成后生成详细汇总报告
-- 🏷️ 自动添加评论标识，方便区分AI评论和人工评论
 
-## 安装
-```bash
-openclaw skill add lark-doc-reviewer
-```
-
-## 依赖
-本技能依赖 `lark-cli-helper` 技能，会自动安装。
+- 支持 PRD、技术方案、通用文档评审模板。
+- 默认两阶段执行：先生成评论计划，再确认写入。
+- 使用 v2 文档读取命令，保留标题和结构上下文。
+- 评论 payload 保持 JSON 数组形状；PowerShell 下必要时直接调用 CLI 的 node runner，避免 `.cmd` 转发破坏 JSON 引号。
+- 表格内评论支持先定位 docx block，再用 `--block-id` 写入。
+- 写入后读取评论列表做验证报告。
 
 ## 使用方法
-### 基础使用
-直接在对话中提供飞书文档链接即可：
-```
-用户：帮我评审一下这篇PRD https://xxx.feishu.cn/wiki/xxx
-AI：好的，正在拉取文档内容并使用PRD评审模板进行分析...
-AI：✅ 评审完成！共添加了8条定点评论：
-   1. ✅ 需求说明：建议补充需求的背景和目标
-   2. ✅ 用户场景：建议补充异常场景处理
-   3. ✅ 交互流程：建议明确异常处理逻辑
-   4. ❌ 权限部分：未匹配到相关内容
+
+### 生成评论计划
+
+```js
+const reviewer = require('./index');
+
+const plan = await reviewer.reviewDocument('https://xxx.feishu.cn/wiki/xxx', 'prd');
+console.log(plan.candidates);
 ```
 
-### 指定评审模板
-```
-用户：用技术方案模板评审这篇文档 https://xxx.feishu.cn/wiki/xxx
-AI：好的，正在使用技术方案评审模板分析文档...
+默认不会写评论。计划中每条候选包含：
+
+- `checkId`
+- `category`
+- `comment`
+- `anchorText`
+- `headingPath`
+- `contextBefore`
+- `contextAfter`
+- `confidence`
+- `status`
+
+### 用户确认后写入
+
+```js
+const result = await reviewer.reviewDocument('https://xxx.feishu.cn/wiki/xxx', 'prd', {
+  confirmed: true
+});
+console.log(result.comments);
 ```
 
-### 自定义评论标识
-```
-用户：评论后面加上"来自AI评审"
-AI：好的，已设置评论后缀为"来自AI评审"
+低置信度或无法定位的评论默认跳过。若用户明确批准，也可以传：
+
+```js
+const result = await reviewer.writeConfirmedComments(docUrl, plan, {
+  includeLowConfidence: true
+});
 ```
 
-## 评审模板
-### 内置模板
-- **PRD评审模板**：产品需求文档评审，包含需求完整性、场景覆盖、交互逻辑等检查项
-- **技术方案评审模板**：技术设计方案评审，包含架构合理性、技术选型、安全性等检查项
-- **通用文档评审模板**：通用文档检查，包含逻辑通顺性、表述准确性、格式规范性等
+## 模板
 
-### 自定义模板
-可以在 `~/.openclaw/config/lark-review-templates/` 目录下添加自定义JSON模板：
+模板目录：
+
+```text
+~/.openclaw/config/lark-review-templates/
+```
+
+模板示例：
+
 ```json
 {
   "name": "自定义模板",
   "description": "我的自定义评审标准",
   "checks": [
     {
-      "keyword": "关键词1",
-      "comment": "这是评论内容1"
-    },
-    {
-      "keyword": "关键词2",
-      "comment": "这是评论内容2"
+      "id": "custom-risk",
+      "category": "风险",
+      "keyword": "风险|阻塞|待决策",
+      "comment": "建议补充风险影响、负责人和下一步处理方案。"
     }
   ]
 }
 ```
 
-## 配置
-- 模板目录：`~/.openclaw/config/lark-review-templates/`
-- 评论后缀：默认"来自天禧Claw"，可自定义
+## 飞书操作原则
 
-## 开源地址
-https://github.com/your-repo/lark-doc-reviewer
+- 写评论前必须检查 `lark-cli auth status --verify`。
+- 第一阶段不得调用 `drive +add-comment`。
+- Wiki 长文档优先按 outline/section 缩小范围。
+- 重复关键词、泛关键词、富媒体附近内容都要标为低置信度。
+- 表格和嵌套列表里的文本，优先使用 docx block id，不要依赖自动文本定位。
+- 写入后必须验证评论列表，不只依赖写入命令返回值。
 
-## 许可证
-MIT
+更多细节见 `references/feishu_doc_review_workflow.md`。

@@ -1,68 +1,91 @@
 ---
 name: lark-doc-reviewer
-description: 飞书文档智能评审助手：自动评审飞书文档并添加定点评论。支持PRD、技术方案、通用文档等多种评审模板，AI生成评审意见并精准定位到文档对应位置，评审完成后生成汇总报告。触发词：评审飞书文档、给飞书文档加评论、PRD评审、技术方案评审、文档审核。
+description: Use when reviewing Feishu/Lark Docs, Wikis, PRDs, technical designs, project plans, or when the user asks to add precise document comments.
 ---
 
-# Lark Doc Reviewer Skill
+# Lark Doc Reviewer
 
-飞书文档智能评审助手，自动评审飞书文档并添加定点评论。
+飞书文档评审技能，用于读取飞书 Doc/Wiki，生成可核对的定点评论计划，并在用户确认后写入评论。
 
-## 功能描述
-- 智能解析飞书文档、知识库、表格等多种类型文档
-- 内置多场景评审模板（PRD、技术方案、项目计划等）
-- AI自动生成评审意见，精准定位到文档对应位置
-- 支持自定义评审规则和模板
-- 评审完成后生成汇总报告
+## Core Rule
 
-## 触发关键词
-- 评审飞书文档
-- 给飞书文档加评论
-- PRD评审
-- 技术方案评审
-- 文档审核
-- 飞书文档评论
+评论写入是用户身份下的飞书写操作。默认必须两阶段执行：
 
-## 依赖
-- lark-cli-helper (飞书CLI基础能力)
-- 已完成飞书账号授权配置
+1. **评审计划阶段**：读取文档、定位章节和候选锚点，生成评论计划并暂停。
+2. **写入验证阶段**：用户明确确认后，才批量添加评论并读取评论列表验证。
 
-## 评审模板
-### 内置模板
-1. **PRD评审模板**
-   - 需求完整性检查
-   - 用户场景覆盖度
-   - 交互逻辑合理性
-   - 边界情况考虑
-   - 异常处理机制
-   - 性能与兼容性要求
+除非用户明确说“直接写评论”或“无需确认”，不要在第一阶段调用 `drive +add-comment`。
 
-2. **技术方案评审模板**
-   - 架构设计合理性
-   - 技术选型适用性
-   - 安全性考虑
-   - 可维护性评估
-   - 性能优化方案
-   - 风险与应对措施
+## Progressive Loading
 
-3. **通用文档评审模板**
-   - 逻辑通顺性
-   - 表述准确性
-   - 格式规范性
-   - 内容完整性
-   - 错别字与语法检查
+- 开始评审前，读取 `references/feishu_doc_review_workflow.md` 的 “Auth and Fetch” 与 “Anchoring”。
+- 准备写评论前，再读取 “Write and Verify”。
+- 只有要修改模板或新增模板时，才读取 README 或 `index.js` 中的模板结构。
 
-## 使用示例
+## Preconditions
+
+1. 检查 CLI 和用户身份：
+   ```bash
+   lark-cli auth status --verify
+   ```
+   必须确认 `identity=user` 且 token 有效。若沙箱看不到 CLI，可改用用户环境中的 npm shim。
+
+2. 读取文档时优先使用 v2：
+   ```bash
+   lark-cli docs +fetch --as user --api-version v2 --doc "<doc_url>" --format json
+   ```
+
+3. 对 Wiki URL，先解析 wiki node，再读取真实文档 token；对长文档优先读取 outline，再按章节评审。
+
+## Stage 1: Review Plan
+
+生成评论计划，不写评论。计划至少包含：
+
+- 文档标题、URL、读取方式和当前用户。
+- 每条候选评论的 `checkId`、类别、建议内容、锚点文本、所在标题路径、上下文摘录、置信度。
+- 无法可靠定位的检查项，标为 `needs_manual_anchor`，不要自动写入。
+- 重复关键词或泛关键词命中的检查项，标为低置信度。
+
+评论建议必须基于文档具体内容，不要只因为模板关键词出现就机械评论。
+
+## Stage 2: Write and Verify
+
+只有用户确认评论计划后才进入本阶段。
+
+写入规则：
+
+- 使用 `drive +add-comment --as user`。
+- `drive +add-comment --content` 当前只接受内联 JSON，不接受 `@file`。在 PowerShell 中优先直接调用 CLI 的 node runner 或用参数数组，避免 `.cmd` 转发吃掉 JSON 双引号。
+- 不要用裸 keyword 作为唯一定位依据；优先使用计划里的短锚点和上下文摘录。
+- 表格、嵌套列表、重复文本中自动定位容易落到不支持评论的 table block；先用 docx block tree 找到具体文本/list block，再用 `--block-id` 写入。
+- 每条写入后记录 `comment_id`、锚点、状态和错误。
+
+写后验证：
+
+```bash
+lark-cli drive file.comments list --as user --params @./comments_list_params.json
 ```
-用户：帮我评审一下这篇PRD https://xxx.feishu.cn/wiki/xxx
-AI：好的，正在拉取文档内容并使用PRD评审模板进行分析...
-AI：✅ 评审完成！共添加了8条定点评论：
-   1. 需求完整性：建议补充用户角色定义
-   2. 场景覆盖：建议考虑异常场景处理
-   3. 交互逻辑：建议明确弹窗交互规则
-   ...
-你可以打开文档查看具体评论内容。
-```
 
-## 配置
-- 支持自定义评审模板，路径：~/.openclaw/config/lark-review-templates/
-- 支持自定义评论标识，默认添加"来自天禧Claw"后缀
+最终报告必须区分：
+
+- 已成功写入并验证的评论。
+- 写入成功但验证未确认的评论。
+- 未写入或定位不可靠的评论。
+
+## Review Templates
+
+内置模板：
+
+- PRD：需求完整性、用户场景、交互逻辑、边界情况、异常处理、性能兼容。
+- 技术方案：架构设计、技术选型、安全性、可维护性、性能优化、风险应对。
+- 通用文档：逻辑、准确性、格式、完整性、错别字。
+
+模板只提供检查维度；不要把模板评论当作无需阅读原文的固定文案。
+
+## Common Mistakes
+
+- 直接批量写评论，跳过评论计划和用户确认。
+- 用 `content.match(regex)` 的第一个结果当成精准定位。
+- 把 JSON 直接拼进 PowerShell 命令字符串。
+- 只看 `commentResult.ok`，不读取评论列表验证。
+- 对 Wiki/长文档整篇拉平读取，丢失标题层级和块级上下文。
