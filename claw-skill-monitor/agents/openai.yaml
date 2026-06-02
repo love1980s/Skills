@@ -1,0 +1,7 @@
+interface:
+  display_name: "Claw Skill Monitor"
+  short_description: "发现并生成 Claw Skill 每日监控日报"
+  brand_color: "#2563EB"
+  default_prompt: "Use $claw-skill-monitor to generate today's Tianxi Claw Skill monitoring report."
+policy:
+  allow_implicit_invocation: true
