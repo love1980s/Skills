@@ -1,104 +1,212 @@
 ---
 name: lark-weekly-okr-sync
-description: 周报汇总与个人 OKR 进展同步。当需要从飞书文档（如周报、周会记录）中提取团队成员的工作内容，并映射更新到你自己的飞书 OKR 时使用。支持“草稿确认”与“正式更新”两阶段工作流。
+description: 周报汇总与个人 OKR 进展同步。当需要从团队周报、周会记录或飞书文档中提炼成员工作，并在用户确认后同步到当前登录用户自己的 OKR/KR 进展时使用。
 ---
 
 # lark-weekly-okr-sync
 
-## 场景概述
-当用户（Team Leader 或个人）需要根据团队的周报/周会文档，提取有价值的工作产出，并将这些产出同步到**用户自己**的 OKR 进展中时使用本 Skill。
+## 核心原则
 
-由于直接写入 OKR 属于敏感操作，本 Skill 采用**两阶段工作流**：
-1. **阶段一：生成确认草稿**：解析周报文档，获取用户当前 OKR，将工作内容映射到 OKR 上，并自动生成一份“飞书 OKR 更新确认单”文档供用户人工确认。
-2. **阶段二：执行更新**：用户确认/修改草稿后，提供草稿文档链接，Skill 读取该草稿并正式更新到飞书 OKR 进展中。
+这个 Skill 只更新**当前 lark-cli 登录用户自己的 OKR**。团队成员的周报内容是输入材料，最终 OKR 更新必须站在项目、Objective、Key Result 的视角总结进展、风险和变化，不按成员逐条搬运。
 
----
+工作流分成两个大阶段：
 
-## 🛠️ 技术坑点与最佳实践 (关键)
+1. **周报提炼确认**：提炼最新一周团队周报，保持原二级标题大组和成员顺序，生成确认单并暂停。
+2. **OKR 更新执行**：用户在确认单中手动插入 OKR Block、检查并改写周报摘要后，再读取确认单，按 KR 视角正式写入 OKR。
 
-1. **飞书 @Mention 正确语法**：
-   - 在 docx 文档中实现“蓝色互动人名”的唯一可靠写法是：`**姓名** <mention-user id="ou_xxx"/>`。
-   - 注意：标签前后建议保留空格，不要直接包裹在其他 Markdown 符号内部（如 `@` 符号可能会干扰解析）。
-   - 在 PowerShell 中执行时，需使用双引号转义：`id=""ou_xxx""`。
+阶段一绝对禁止调用 `lark-cli okr +progress-create`。
 
-2. **User ID 强校验限制**：
-   - 飞书 API (`docs +update`) 会对 `mention-user` 中的 `id` 进行强校验。
-   - **坑点**：如果 ID 不属于当前租户或已失效，服务端会直接拒绝整个更新请求（导致整篇文档更新失败）。
-   - **对策**：在生成文档前，必须通过 `contact +get-user` 预校验 ID。对于校验失败的 ID，必须降级为“**普通加粗文本**”显示，严禁使用 `<mention-user/>` 标签。
+## 渐进式加载要求
 
-3. **持久化人名映射**：
-   - 建议在 `references/user_mapping.md` 中维护一份 `Open ID -> 姓名` 的映射表。
-   - AI 每次解析前应先读取该表，减少对通讯录 API 的依赖，并能处理跨租户 ID 的人名显示。
+这个流程较复杂，不要一次性展开所有细节。按当前阶段只读取必要 reference：
 
-4. **原生 OKR Block 锚点注入**：
-   - 原生 OKR Block (`block_type: 36`) 内部结构分层极深。直接对 `Progress Block (Type 39)` 执行 `append` 可能导致内容在 UI 上不可见。
-   - **最佳实践**：必须先通过 `lark-cli api GET /open-apis/docx/v1/documents/:doc_id/blocks/:progress_block_id/children` 找到进展块内自带的那个**空文本块 (Type 2)** 的 ID。
-   - 以该文本块为“锚点”，执行 `block_insert_after` 或 `block_copy_insert_after`，内容才能真实显示在原生 OKR 进展输入区。
+- 生成确认单前：读取 `references/user_mapping.md` 和 `references/mention_and_okr_block.md` 的 @Mention 章节。
+- 用户插入 OKR Block 后：再读取 `references/mention_and_okr_block.md` 的 OKR Block 章节。
+- 只有需要修改模板结构时，才读取 `references/confirmation_template.md`。
 
----
-## 前置准备与注意事项
+## 前置检查
 
-1. **多模态内容处理限制**：
-   - 提取周报内容时，主要处理文本、列表和表格。
-   - 如果文档中包含无法解析的多模态内容（如图片、视频、画板、多维表格视图），**必须**在提取结果中该位置明确标注：“`[有多模态内容无法解析，请人工核对]`”。
-2. **主体限制（只更新“我的”OKR）**：
-   - 必须只更新操作者本人的 OKR，而不是组员个人的 OKR。组员的工作内容应映射到操作者（Leader）的 Objective 和 Key Result 下。
-3. **未更新 KR 处理**：
-   - 如果某个 Key Result 在本周没有任何对应的进展，必须在确认单和最终更新中明确标注为“**未更新**”。
-4. **身份免打扰获取**：
-   - 优先使用 `lark-cli auth status` 获取当前登录用户的 `userOpenId`。
-
----
-
-## 工作流指南
-
-### 阶段一：生成确认草稿 (Phase 1)
-**触发条件**：用户提供了周会文档 URL，要求汇总并更新 OKR，但还未提供“确认单”。
-
-**操作步骤**：
-1. **获取当前用户信息**：
+1. 检查 CLI 是否在当前执行环境可用：
    ```bash
    lark-cli auth status
-   # 提取 userOpenId 和 userName
    ```
-2. **获取并解析 OKR 详情**：
-   - 首先获取周期列表：`lark-cli okr +cycle-list --user-id <userOpenId>`
-   - 识别当前活跃周期（通常是开始/结束日期覆盖今天的那个）后，获取详情：
-   ```bash
-   lark-cli okr +cycle-detail --cycle-id <active_cycle_id>
-   ```
-   - 记录所有 Objectives 及其 Key Results 的 ID 和内容。
-3. **获取并解析周报文档**：
-   ```bash
-   lark-cli docs +fetch --url "<周报文档URL>"
-   ```
-   - 提取最新一周的进展。
-   - 按成员拆分内容。
-   - 遇到无法解析的块，插入 `[有多模态内容无法解析，请人工核对]`。
-4. **AI 映射与提炼**：
-   - 根据用户的 OKR 列表，提炼组员内容，映射到对应的 O 或 KR。
-   - **空值处理**：未匹配到进展的 KR 填入“**未更新**”。
-   - 找出未匹配到当前 OKR 但非常重要的工作，归类为“**游离重要事项**”。
-5. **创建草稿文档**：
-   - 构造一段 Markdown 格式的确认清单，包含映射好的 OKR 进展和游离事项。
-   - 使用 `lark-cli docs +create --title "本周 OKR 更新确认单 - YYYY-MM-DD" --markdown "<构建好的Markdown>"` 创建新文档。
-6. **输出结果并暂停**：
-   - 将生成的草稿文档 URL 返回给用户。
-   - 提示用户：“草稿已生成，请在飞书文档中审阅和修改。修改完成后，请回复『确认完毕，执行更新 + [草稿文档URL]』，我将为您正式更新 OKR。”
+   如果沙箱中找不到 `lark-cli` 或无法访问 `AppData/Roaming/npm`，改用非沙箱执行，并说明这是执行环境可见性问题。
 
-### 阶段二：执行正式更新 (Phase 2)
-**触发条件**：用户确认了草稿文档，并要求执行更新。
+2. 显式展示当前用户，确认 OKR 主体：
+   - `userName`
+   - `userOpenId`
+   - `identity` 必须为 `user`
+   - `tokenStatus` 必须为 `valid`
 
-**操作步骤**：
-1. **获取已确认的草稿**：
+3. 读取 `references/user_mapping.md`。生成任何 @Mention 前，必须先用通讯录接口校验：
    ```bash
-   lark-cli docs +fetch --url "<确认单文档URL>"
+   lark-cli contact +get-user --as user --user-id <open_id> --user-id-type open_id --format json
    ```
-2. **解析确定的进展项**：
-   - 从草稿文档中提取经过用户最终确认的每个目标（O/KR）对应的进展内容。
-3. **执行双路同步更新**：
-   - **后端同步**：使用 `lark-cli okr +progress-create --id "<O或KR_ID>" --type <1或2> --content "<确认的进展内容>"`。
-   - **UI 注入**：若文档包含原生 OKR Block，需定位 Progress Block 后抓取第一个子 Text Block 作为锚点，执行 `block_copy_insert_after` 实现 UI 同步。
-4. **反馈执行结果**：
-   - 告知用户各个 OKR 目标进展的更新结果（成功/失败）。
 
+## @Mention 规则
+
+**关键坑点：不要使用 `<mention-user id="..."/>`。** 这个写法会在 `docs +create --doc-format markdown` 中被转义成普通文本，用户会看到 `姓名 <mention-user id="..."/>`。
+
+正确方法见 `references/mention_and_okr_block.md`。简要规则：
+
+```bash
+lark-cli contact +get-user --as user --user-id <open_id> --user-id-type open_id --format json
+```
+
+- 使用前必须校验 open_id 属于当前租户且可用。
+- 用 `docs +create/update` 生成飞书文档时，优先使用 XML 格式，@ 人写为 `<cite type="user" user-id="ou_xxx"></cite>`。
+- XML `<cite type="user">` 写入后，在原生 docx block 里会表现为 `mention_user`。
+- Markdown 确认单不支持可靠生成 @ 人；如必须用 Markdown，只写 `**姓名**`，不要附带任何 mention 标签。
+- 如果周报里解析出的姓名/open_id 与 `references/user_mapping.md` 不一致，以通讯录校验结果为准，并更新 mapping。
+- 如果无法校验或 ID 失效，仍写 `**姓名**`，并在确认单中标注：`[该成员 @Mention 校验失败，请人工核对]`。
+
+## 阶段一：周报提炼确认
+
+触发条件：用户提供周报/周会/Wiki 文档链接，希望先生成确认单。
+
+### 读取材料
+
+1. 获取当前用户：
+   ```bash
+   lark-cli auth status
+   ```
+
+2. 获取用户 OKR 周期和详情，只用于确认单上下文，不用于本阶段写入：
+   ```bash
+   lark-cli okr +cycle-list --as user --user-id <userOpenId> --user-id-type open_id --format json
+   lark-cli okr +cycle-detail --as user --cycle-id <active_cycle_id> --format json
+   ```
+
+3. 读取周报文档：
+   ```bash
+   lark-cli docs +fetch --as user --api-version v2 --doc "<周报文档URL>" --format json
+   ```
+
+4. 只提取最新一周内容。优先使用最新日期标题；如果无法判断最新一周，停止并向用户确认日期范围。
+
+### 提炼规则
+
+目标是把组员写得很细的周报压缩成可检查、可复用的周报摘要。
+
+- 保持原文档的排布逻辑：二级标题是大组，三级标题或成员块是成员；不得为了 OKR 映射重排成员。
+- 每个成员保留 2-6 个主要工作要点，聚合重复细节，删除过程噪声。
+- 不要在第一阶段按 OKR/KR 打散成员内容。
+- 保留重要百分比、日期、里程碑、风险、阻塞、待决策事项。
+- 富媒体处理：
+  - 表格、图片、画板、附件、外部看板能通过飞书文档能力复用时，尽量插入或保留引用。
+  - 不能直接写入时，写成明确占位：`这里需要插入 XXX`，例如 `这里需要插入预装后看板截图`。
+  - 不要只写笼统的“有多模态内容无法解析”。
+
+### 确认单结构
+
+确认单必须使用固定结构，可参考 `references/confirmation_template.md`：
+
+```markdown
+# 本周 OKR 更新确认单 - YYYY-MM-DD
+
+## 执行信息
+
+## 一、本周周报提炼
+
+## 二、请手动插入 OKR Block
+
+## 三、OKR 更新草稿/执行区
+
+## 四、确认后执行说明
+```
+
+第一阶段只填充“执行信息”和“一、本周周报提炼”。“二、请手动插入 OKR Block”必须明确告诉用户：
+
+1. 在该位置手动插入飞书原生 OKR Block。
+2. 检查并直接改写第一部分周报摘要。
+3. 完成后回复：`确认完毕，执行更新 + [确认单文档URL]`。
+
+创建确认单使用当前 CLI 支持的 v2 参数。默认用 XML，因为 XML 支持 `<cite type="user">`、图片、文档引用等富组件：
+
+```bash
+lark-cli docs +create --as user --api-version v2 --content @./okr_confirm.xml
+```
+
+只有用户明确要求 Markdown 或已有 `.md` 文件必须导入时，才使用 `--doc-format markdown`；此时禁止输出 `<mention-user .../>`。
+
+创建后必须读取新文档验证：
+
+```bash
+lark-cli docs +fetch --as user --api-version v2 --doc "<确认单URL>" --format json
+```
+
+验证内容包含：
+
+- 周报摘要
+- OKR Block 手动插入说明
+- 确认后执行说明
+- 成员姓名没有残留字面量 `<mention-user .../>`
+- 如果本轮使用 XML，抽查至少一个成员在 docx block tree 中渲染为 `mention_user`
+
+阶段一完成后必须暂停，等待用户确认。
+
+## 阶段二：OKR 更新执行
+
+触发条件：用户回复“确认完毕，执行更新 + [确认单文档URL]”。
+
+### 读取确认单
+
+重新读取确认单，必须以用户修改后的确认单内容为唯一依据：
+
+```bash
+lark-cli docs +fetch --as user --api-version v2 --doc "<确认单URL>" --format json
+```
+
+如果确认单缺少 OKR Block 或用户未明确确认，停止并提醒用户先完成手动插入和检查。
+
+### 生成 KR 视角进展
+
+第二阶段不要完整粘贴组员内容。应充分理解每个 Objective 和 Key Result，从确认单第一部分的成员周报摘要中整合：
+
+- 已完成的关键进展
+- 仍在推进的事项
+- 风险、阻塞、待决策
+- 指标、百分比、日期或版本节点
+
+可以打乱成员关系，按项目/KR 组织内容。只有当负责人、协作方或风险归属有必要说明时才标注人员；如果不能通过原生 docx block API 写入真正 @Mention，就使用普通姓名，不能输出字面量 `<mention-user .../>`。
+
+每个 KR 都必须处理：
+
+- 有相关进展：写项目视角总结。
+- 无相关进展：写“本周未更新”。
+- 只有风险无进展：写风险和下一步，不写成完成项。
+
+### 写入 OKR
+
+正式写入前，先把每个 KR 的进展内容整理为 ContentBlock JSON 文件，再执行：
+
+```bash
+lark-cli okr +progress-create \
+  --as user \
+  --target-id "<KR_ID>" \
+  --target-type key_result \
+  --content @./kr_progress.json \
+  --source-title "本周 OKR 更新确认单 - YYYY-MM-DD" \
+  --source-url "<确认单URL>"
+```
+
+只写 KR，默认不写 Objective。除非用户明确要求，否则不要更新成员个人 OKR。
+
+### 原生 OKR Block 同步
+
+如果确认单中包含飞书原生 OKR Block，并且需要把同样内容写回文档 UI，先读取 `references/mention_and_okr_block.md` 的 OKR Block 章节：
+
+1. 先定位原生 OKR Block (`block_type: 36`) 和 Progress Block (`block_type: 39`)。
+2. 不要直接 append 到 Progress Block。
+3. 先通过 API 获取 Progress Block children，找到内部空文本块 (`block_type: 2`)。
+4. 以该文本块为锚点，使用 `block_insert_after` 或 `block_copy_insert_after`。
+
+如果无法可靠定位锚点，不要强行写 UI；只完成后端 OKR progress 写入，并在结果里说明。
+
+## 安全边界
+
+- 阶段一只允许读取 OKR/周报、创建确认单、验证确认单。
+- 阶段一禁止调用 `okr +progress-create`、`okr +progress-update`、`okr +progress-delete`。
+- 阶段二必须有用户确认的确认单 URL。
+- 每次执行前都必须显示当前 `userName` 和 `userOpenId`。
+- 任何身份异常、token 过期、确认单缺失、mapping 校验失败，都先停下来说明，不要猜测写入。
