@@ -1,12 +1,18 @@
 # User Mapping Database
 
+此表用于生成飞书 @Mention。使用前仍必须通过 `lark-cli contact +get-user --as user --user-id <open_id> --user-id-type open_id` 校验；如果校验失败，文档中降级为加粗姓名并标注人工核对。
+
 | Open ID | 姓名 | 备注 |
 |---------|------|------|
 | ou_4248a559622732f045bb3fa44c11552d | 舒松 | |
 | ou_de1cc8bc2b206f6e5f4dc1d749d12095 | 刘玮聪 | |
+| ou_fb40588d427cab4d2b576dbcb02cf01d | 曾若兰 | Mini 负责人 |
 | ou_30f0ca930fdf3ff899d8f4768506f707 | 赵冬玲 | |
-| ou_2ec559660606c66f6fa778a05ff8d7ff5 | 苏玉婷 | (Demo 负责人) |
-| ou_fbb40588d427cab4d2b576dbcb02cf01d | 曾若兰 | (Mini 负责人) |
+| ou_2ec559660606c66f6fa778a05f8d7ff5 | 周天韵 | |
+| ou_2b02c3583f9601ae3668ab151dbfc1d3 | 李凯 | |
+| ou_13e00e097f668f5e9c748b501e76be2e | 金醒 | |
+| ou_3ba84fb1890d405094b9b55e0ab71539 | 黄泽昊 | |
+| ou_ebbacbd91d637d347c3f92cd98e7c92f | 白炎妮 | |
 | ou_a683c119825253224e54c749093aeaff | 蔡利伟 | |
 | ou_a3dab283bab32fcea89191168e483fac | 郑超 | |
 | ou_d9064984cceaa59aa0b5303ddf4c2320 | 程大鹏 | |
