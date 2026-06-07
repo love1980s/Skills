@@ -24,6 +24,17 @@ description: 周报汇总与个人 OKR 进展同步。当需要从团队周报�
 - 用户插入 OKR Block 后：再读取 `references/mention_and_okr_block.md` 的 OKR Block 章节。
 - 只有需要修改模板结构时，才读取 `references/confirmation_template.md`。
 
+## Token 与耗时控制
+
+第二阶段默认走**轻量 OKR Block 更新路径**。目标是在确认单中已有 OKR Block 和 KR 提纲时，避免全量展开整篇文档、避免把大型 block tree 带入上下文。
+
+- 先用 `docs +fetch` 读取确认单正文，确认周报摘要和 OKR Block 存在；不要把普通 fetch 当作 OKR Block 内容验证依据，因为它通常只显示 `<okr></okr>`。
+- 读取原生 block tree 时，优先保存到本地临时 JSON，再用脚本提取“Objective / KR / Progress block / 提纲项 / 空占位 / 锚点”的压缩清单；不要把完整 JSON 粘进上下文或最终答复。
+- 如果用户明确要求“仅更新确认单 UI / OKR Block 展示”，不要调用 `okr +progress-list` 或 `okr +progress-create`，也不要展开后端 OKR 写入流程。
+- 如果确认单里的每个 KR 已经有进展提纲，按提纲补充内容，不重写整个 KR，不删除原有条目；需要配图、表格、截图时写明确备注，例如 `备注：需补充“用户反馈重点问题表”和相关截图。`
+- 验证时只做关键词和少量 KR 抽查；除非定位失败或用户要求，不要再次输出或分析完整 block tree。
+- 遇到空列表项 `block_replace` 不生效时，改用 `block_insert_after` 在该空占位或对应提纲项后插入内容，并记录未删除的空占位可能需要人工清理。
+
 ## 前置检查
 
 1. 检查 CLI 是否在当前执行环境可用：
