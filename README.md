@@ -19,7 +19,7 @@
 - **目录**：`invoice-organizer-pro/`
 
 ### 🔄 lark-weekly-okr-sync (周报 OKR 同步助手)
-- **功能**：从飞书文档提取工作内容并自动同步更新至个人 OKR。
+- **功能**：从飞书文档提取团队周报，生成确认单，并在用户确认后按 KR 视角同步到个人 OKR；支持原生 OKR Block 的轻量第二阶段更新，默认压缩解析 KR 提纲和锚点，避免全量 block tree 造成高耗时、高 token 消耗。
 - **目录**：`lark-weekly-okr-sync/`
 
 ### 🛠️ lark-cli-helper (飞书 CLI 工具助手)
