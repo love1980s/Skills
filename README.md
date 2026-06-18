@@ -34,6 +34,10 @@
 - **功能**：监控 OpenClaw/ClawHub Skill 公开信号，整合 Bing/news、ai-bot.cn 与 ClawHub 新上线数据，过滤 C 端场景并生成 JSON、文本和 HTML 日报；V2 backlog 已记录媒体源扩展、短视频平台监控与 Skill Gallery 状态识别。
 - **目录**：`claw-skill-monitor/`
 
+### 🔥 aihot (AI HOT 中文 AI 资讯查询)
+- **功能**：从 aihot.virxact.com 免 API key 实时获取并自动整理精选的模型/产品/行业/论文/技巧动态为中文资讯简报。
+- **目录**：`aihot/`
+
 ## 部署说明
 将对应技能文件夹复制到 Agent 软件指定的技能目录即可。
 
